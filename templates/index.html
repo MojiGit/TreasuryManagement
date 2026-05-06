@@ -1,0 +1,294 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>CryptoTreasury</title>
+    <link rel="stylesheet" href="/static/style.css">
+</head>
+<body>
+<div class="app">
+
+    <!-- ── Topbar ── -->
+    <header class="topbar">
+        <div class="topbar-inner">
+            <div class="topbar-brand">
+                <div class="brand-mark">CT</div>
+                <div>
+                    <span class="brand-name">CryptoTreasury</span>
+                    <span class="brand-sub">Ethereum Treasury Management</span>
+                </div>
+            </div>
+
+            <!-- Auth state — populated by JS -->
+            <div id="topbar-auth" class="topbar-auth">
+                <button id="open-auth-btn" class="btn-ghost" onclick="openAuthModal('login')">
+                    Login / Register
+                </button>
+            </div>
+        </div>
+    </header>
+
+    <!-- ── Step Progress ── -->
+    <div class="steps-track">
+        <div class="steps-inner">
+            <div class="step-item active" id="step-1">
+                <div class="step-num">1</div>
+                <span class="step-name">Wallet Setup</span>
+            </div>
+            <div class="step-connector"></div>
+            <div class="step-item" id="step-2">
+                <div class="step-num">2</div>
+                <span class="step-name">Portfolio</span>
+            </div>
+            <div class="step-connector"></div>
+            <div class="step-item" id="step-3">
+                <div class="step-num">3</div>
+                <span class="step-name">Pool Config</span>
+            </div>
+            <div class="step-connector"></div>
+            <div class="step-item" id="step-4">
+                <div class="step-num">4</div>
+                <span class="step-name">Results</span>
+            </div>
+        </div>
+    </div>
+
+    <!-- ── Main ── -->
+    <main class="main-content">
+
+        <!-- Saved-config banner — shown when logged in and a saved config exists -->
+        <div id="saved-config-banner" class="saved-config-banner hidden">
+            <div class="scb-left">
+                <span class="scb-icon">&#128190;</span>
+                <div>
+                    <div class="scb-title">Saved configuration found</div>
+                    <div class="scb-desc">Load your wallet addresses from last session.</div>
+                </div>
+            </div>
+            <div class="scb-actions">
+                <button class="btn-accent-sm" onclick="loadSavedConfig()">Load Configuration</button>
+                <button class="btn-ghost-sm" onclick="dismissSavedBanner()">Dismiss</button>
+            </div>
+        </div>
+
+        <!-- Step 1: Wallet Setup -->
+        <section id="wallet-setup" class="card">
+            <div class="card-header">
+                <div>
+                    <h2>Wallet Setup</h2>
+                    <p class="card-desc">Enter your master wallet and up to 15 subwallets.</p>
+                </div>
+                <!-- Save config button — visible only when logged in -->
+                <button id="save-config-btn" class="btn-secondary hidden"
+                    onclick="saveConfig()">
+                    Save Configuration
+                </button>
+            </div>
+            <div class="card-body">
+                <div class="setup-grid">
+                    <div>
+                        <label class="field-label">Master Wallet</label>
+                        <p class="field-hint">Acts as the hub — receives surplus or funds deficits.</p>
+                        <input type="text" id="master-address"
+                            placeholder="0x..." class="address-input"
+                            autocomplete="off" spellcheck="false" />
+                    </div>
+                    <div>
+                        <label class="field-label">Subwallets</label>
+                        <p class="field-hint">Up to 15 sub-accounts supported.</p>
+                        <div id="subwallet-list"></div>
+                        <button id="add-subwallet" class="btn-add">+ Add Subwallet</button>
+                    </div>
+                </div>
+                <div class="card-actions">
+                    <button id="load-btn" class="btn-primary">
+                        <span class="btn-text">Load Portfolio</span>
+                        <span class="btn-spinner hidden"></span>
+                    </button>
+                    <p id="load-error" class="error-msg"></p>
+                </div>
+            </div>
+        </section>
+
+        <!-- Step 2: Portfolio View -->
+        <section id="portfolio-view" class="card hidden">
+            <div class="card-header">
+                <div>
+                    <h2>Live Portfolio</h2>
+                    <p class="card-desc">Real-time ETH balances from Etherscan.</p>
+                </div>
+            </div>
+            <div class="card-body">
+                <div id="master-overview" class="master-overview hidden"></div>
+                <div class="portfolio-body">
+                    <div id="sub-accounts-panel" class="accounts-panel"></div>
+                    <div class="chart-panel">
+                        <svg id="portfolio-chart" viewBox="0 0 200 200"
+                            xmlns="http://www.w3.org/2000/svg"></svg>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Account prompt — shown when not logged in, after portfolio loads -->
+            <div id="account-prompt" class="account-prompt hidden">
+                <p class="ap-text">
+                    Save your wallet configuration for next time &mdash;
+                    <button class="ap-link" onclick="openAuthModal('register')">
+                        create a free account
+                    </button>
+                </p>
+                <button class="ap-dismiss" onclick="document.getElementById('account-prompt').classList.add('hidden')">
+                    &#x2715;
+                </button>
+            </div>
+        </section>
+
+        <!-- Step 3: Pooling Setup -->
+        <section id="pooling-setup" class="card hidden">
+            <div class="card-header">
+                <div>
+                    <h2>Cash Pooling Setup</h2>
+                    <p class="card-desc">Configure the target balance for each wallet.</p>
+                </div>
+            </div>
+            <div class="card-body">
+                <table class="data-table" id="pooling-table">
+                    <thead>
+                        <tr>
+                            <th>Address</th>
+                            <th>Role</th>
+                            <th>Current (ETH)</th>
+                            <th>Mode</th>
+                            <th>Target (ETH)</th>
+                        </tr>
+                    </thead>
+                    <tbody id="pooling-body"></tbody>
+                </table>
+                <div class="card-actions">
+                    <button id="pool-btn" class="btn-primary btn-accent">
+                        <span class="btn-text">Run Pool</span>
+                        <span class="btn-spinner hidden"></span>
+                    </button>
+                    <p id="pool-error" class="error-msg"></p>
+                </div>
+            </div>
+        </section>
+
+        <!-- Step 4: Results -->
+        <section id="results-view" class="card hidden">
+            <div class="card-header">
+                <div>
+                    <h2>Transfer Plan</h2>
+                    <p class="card-desc">Review each transfer and execute manually.</p>
+                </div>
+                <button id="copy-btn" class="btn-secondary">Copy Plan</button>
+            </div>
+            <div class="card-body">
+                <div id="infeasible-msg" class="alert alert-error hidden"></div>
+
+                <div id="transfer-results">
+                    <div id="results-summary" class="stat-cards"></div>
+
+                    <h3 class="section-title">Transfers</h3>
+                    <table class="data-table" id="transfer-table">
+                        <thead>
+                            <tr>
+                                <th>#</th>
+                                <th>Type</th>
+                                <th>From</th>
+                                <th>To</th>
+                                <th>Amount (ETH)</th>
+                            </tr>
+                        </thead>
+                        <tbody id="transfer-body"></tbody>
+                    </table>
+
+                    <!-- After-Transfer Portfolio View -->
+                    <div id="after-portfolio-section" class="after-portfolio-wrap hidden">
+                        <div class="after-section-header">
+                            <span class="after-section-tag">After Transfer</span>
+                            <p class="after-section-desc">
+                                Projected portfolio state after executing all transfers above.
+                            </p>
+                        </div>
+                        <div id="after-master-overview" class="master-overview after-master"></div>
+                        <div class="portfolio-body">
+                            <div id="after-sub-accounts" class="accounts-panel"></div>
+                            <div class="chart-panel">
+                                <svg id="after-chart" viewBox="0 0 200 200"
+                                    xmlns="http://www.w3.org/2000/svg"></svg>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </section>
+
+    </main>
+
+    <footer class="app-footer">
+        CryptoTreasury &mdash; MVP v1.0 &nbsp;&middot;&nbsp;
+        Ethereum only &nbsp;&middot;&nbsp; No custody, no private keys
+    </footer>
+
+</div>
+
+<!-- ── Auth Modal ── -->
+<div id="auth-modal" class="modal-overlay hidden" onclick="handleModalBackdrop(event)">
+    <div class="modal-card">
+        <button class="modal-close" onclick="closeAuthModal()">&#x2715;</button>
+
+        <div class="modal-header">
+            <div class="brand-mark" style="width:30px;height:30px;font-size:11px;">CT</div>
+            <h2 class="modal-title">CryptoTreasury</h2>
+        </div>
+
+        <div class="modal-tabs">
+            <button id="tab-login"    class="modal-tab active" onclick="switchTab('login')">Login</button>
+            <button id="tab-register" class="modal-tab"        onclick="switchTab('register')">Register</button>
+        </div>
+
+        <!-- Login form -->
+        <form id="login-form" class="modal-form" onsubmit="submitLogin(event)">
+            <div class="mfield">
+                <label class="field-label">Email</label>
+                <input type="email" id="login-email" class="address-input"
+                    placeholder="you@example.com" autocomplete="email" />
+            </div>
+            <div class="mfield">
+                <label class="field-label">Password</label>
+                <input type="password" id="login-password" class="address-input"
+                    placeholder="Your password" autocomplete="current-password" />
+            </div>
+            <p id="login-error" class="error-msg"></p>
+            <button type="submit" id="login-submit-btn" class="btn-primary" style="margin-top:4px;">
+                <span class="btn-text">Login</span>
+                <span class="btn-spinner hidden"></span>
+            </button>
+        </form>
+
+        <!-- Register form -->
+        <form id="register-form" class="modal-form hidden" onsubmit="submitRegister(event)">
+            <div class="mfield">
+                <label class="field-label">Email</label>
+                <input type="email" id="reg-email" class="address-input"
+                    placeholder="you@example.com" autocomplete="email" />
+            </div>
+            <div class="mfield">
+                <label class="field-label">Password</label>
+                <input type="password" id="reg-password" class="address-input"
+                    placeholder="Min 8 characters" autocomplete="new-password" />
+            </div>
+            <p id="reg-error" class="error-msg"></p>
+            <button type="submit" id="reg-submit-btn" class="btn-primary" style="margin-top:4px;">
+                <span class="btn-text">Create Account</span>
+                <span class="btn-spinner hidden"></span>
+            </button>
+        </form>
+    </div>
+</div>
+
+<script src="/static/app.js"></script>
+</body>
+</html>
