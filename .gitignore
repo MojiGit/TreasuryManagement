@@ -10,3 +10,6 @@ Thumbs.db
 # Ignore logs and temporary files
 *.log
 *.tmp
+
+#ignore AI assistant data
+.claude/
