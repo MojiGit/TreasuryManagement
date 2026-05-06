@@ -2,7 +2,9 @@
 // CryptoTreasury — Frontend Logic
 // ─────────────────────────────────────────────────────────
 
-let loadedWallets = [];
+let loadedWallets  = [];
+let lastPoolConfig = [];   // wallet config captured before each /api/pool call
+let lastPoolResult = null; // response from /api/pool
 
 // Colour palette for chart slices — muted professional palette for light theme
 const CHART_COLORS = [
@@ -17,7 +19,7 @@ const MASTER_CHART_COLOR = '#94A3B8';
 
 // ── Step Progress ─────────────────────────────────────────
 function setStep(active) {
-    for (let i = 1; i <= 4; i++) {
+    for (let i = 1; i <= 5; i++) {
         const el = document.getElementById(`step-${i}`);
         if (!el) continue;
         el.classList.remove('active', 'done');
@@ -377,11 +379,6 @@ function displayPortfolio(data) {
     document.getElementById('portfolio-view').classList.remove('hidden');
     document.getElementById('portfolio-view').scrollIntoView({ behavior: 'smooth' });
     setStep(2);
-
-    // Show account prompt only when logged-out
-    const prompt = document.getElementById('account-prompt');
-    if (!currentUser) prompt.classList.remove('hidden');
-    else              prompt.classList.add('hidden');
 }
 
 // ── Step 3: Build Pooling Setup ───────────────────────────
@@ -477,6 +474,8 @@ async function runPool() {
         }
     });
 
+    lastPoolConfig = wallets.map(w => ({ ...w })); // snapshot before API call
+
     setLoading(poolBtn, true);
 
     try {
@@ -487,6 +486,7 @@ async function runPool() {
         });
         const data = await response.json();
         if (!response.ok) { errorEl.textContent = 'Server error. Please try again.'; return; }
+        lastPoolResult = data;
         displayResults(data);
     } catch (err) {
         errorEl.textContent = 'Could not connect to server.';
@@ -511,7 +511,7 @@ function displayResults(data) {
             `Increase the master balance or reduce subwallet targets.`;
         infeasible.classList.remove('hidden');
         transferDiv.classList.add('hidden');
-        document.getElementById('after-portfolio-section').classList.add('hidden');
+        document.getElementById('after-view').classList.add('hidden');
         return;
     }
 
@@ -597,7 +597,7 @@ function renderAfterPortfolio(data) {
 
     document.getElementById('after-master-overview').innerHTML = `
         <div class="master-left">
-            <span class="master-badge after-badge">After Transfer</span>
+            <span class="master-badge after-badge">Master Wallet</span>
             <div class="master-addr">${mShort}</div>
             <div class="master-balance">${masterEntry.post.toFixed(4)} <span class="master-unit">ETH</span></div>
             <div class="master-delta" style="color:${mDeltaColor}">${mDeltaStr}</div>
@@ -677,227 +677,458 @@ function renderAfterPortfolio(data) {
         'after-sub-accounts'
     );
 
-    document.getElementById('after-portfolio-section').classList.remove('hidden');
+    const afterView = document.getElementById('after-view');
+    afterView.classList.remove('hidden');
+    afterView.scrollIntoView({ behavior: 'smooth' });
+    setStep(5);
 }
 
-// ── Auth State ────────────────────────────────────────────
+// ── PDF Report ────────────────────────────────────────────
 
-let currentUser = null; // { user_id, email } or null
-
-async function checkAuthState() {
-    try {
-        const res  = await fetch('/api/auth/me');
-        const data = await res.json();
-        currentUser = data.user_id ? data : null;
-    } catch {
-        currentUser = null;
-    }
-    updateAuthUI(currentUser);
-
-    if (currentUser) {
-        try {
-            const res  = await fetch('/api/wallet-config');
-            const data = await res.json();
-            if (data.config && data.config.length > 0) {
-                document.getElementById('saved-config-banner').classList.remove('hidden');
-            }
-        } catch { /* ignore */ }
-    }
-}
-
-function updateAuthUI(user) {
-    const topbarAuth    = document.getElementById('topbar-auth');
-    const saveConfigBtn = document.getElementById('save-config-btn');
-
-    if (user) {
-        topbarAuth.innerHTML = `
-            <span class="topbar-email">${user.email}</span>
-            <button class="btn-ghost" onclick="logout()">Logout</button>`;
-        saveConfigBtn.classList.remove('hidden');
-        document.getElementById('account-prompt').classList.add('hidden');
-    } else {
-        topbarAuth.innerHTML = `
-            <button id="open-auth-btn" class="btn-ghost" onclick="openAuthModal('login')">
-                Login / Register
-            </button>`;
-        saveConfigBtn.classList.add('hidden');
-    }
-}
-
-// ── Auth Modal ────────────────────────────────────────────
-
-function openAuthModal(tab) {
-    switchTab(tab);
-    document.getElementById('auth-modal').classList.remove('hidden');
-    document.body.style.overflow = 'hidden';
-}
-
-function closeAuthModal() {
-    document.getElementById('auth-modal').classList.add('hidden');
-    document.body.style.overflow = '';
-    document.getElementById('login-error').textContent  = '';
-    document.getElementById('reg-error').textContent    = '';
-}
-
-function handleModalBackdrop(event) {
-    if (event.target === document.getElementById('auth-modal')) closeAuthModal();
-}
-
-function switchTab(tab) {
-    const isLogin = tab === 'login';
-    document.getElementById('login-form').classList.toggle('hidden', !isLogin);
-    document.getElementById('register-form').classList.toggle('hidden', isLogin);
-    document.getElementById('tab-login').classList.toggle('active', isLogin);
-    document.getElementById('tab-register').classList.toggle('active', !isLogin);
-}
-
-// ── Login / Register ──────────────────────────────────────
-
-async function submitLogin(event) {
-    event.preventDefault();
-    const errorEl = document.getElementById('login-error');
-    const btn     = document.getElementById('login-submit-btn');
-    errorEl.textContent = '';
-
-    const email    = document.getElementById('login-email').value.trim();
-    const password = document.getElementById('login-password').value;
-
-    setLoading(btn, true);
-    try {
-        const res  = await fetch('/api/auth/login', {
-            method:  'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body:    JSON.stringify({ email, password }),
-        });
-        const data = await res.json();
-        if (!res.ok) { errorEl.textContent = data.detail || 'Login failed.'; return; }
-        currentUser = data;
-        updateAuthUI(currentUser);
-        closeAuthModal();
-    } catch {
-        errorEl.textContent = 'Could not connect to server.';
-    } finally {
-        setLoading(btn, false);
-    }
-}
-
-async function submitRegister(event) {
-    event.preventDefault();
-    const errorEl = document.getElementById('reg-error');
-    const btn     = document.getElementById('reg-submit-btn');
-    errorEl.textContent = '';
-
-    const email    = document.getElementById('reg-email').value.trim();
-    const password = document.getElementById('reg-password').value;
-
-    setLoading(btn, true);
-    try {
-        const res  = await fetch('/api/auth/register', {
-            method:  'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body:    JSON.stringify({ email, password }),
-        });
-        const data = await res.json();
-        if (!res.ok) { errorEl.textContent = data.detail || 'Registration failed.'; return; }
-        currentUser = data;
-        updateAuthUI(currentUser);
-        closeAuthModal();
-    } catch {
-        errorEl.textContent = 'Could not connect to server.';
-    } finally {
-        setLoading(btn, false);
-    }
-}
-
-async function logout() {
-    try { await fetch('/api/auth/logout', { method: 'POST' }); } catch { /* ignore */ }
-    currentUser = null;
-    updateAuthUI(null);
-    document.getElementById('saved-config-banner').classList.add('hidden');
-}
-
-// ── Save / Load Config ────────────────────────────────────
-
-async function saveConfig() {
-    if (!currentUser) return;
-
-    const masterAddress = document.getElementById('master-address').value.trim();
-    if (!masterAddress) return;
-
-    const subInputs  = document.querySelectorAll('.sub-address');
-    const wallets    = [
-        { address: masterAddress, role: 'master', mode: null, target: null },
-        ...Array.from(subInputs)
-            .map(i => i.value.trim())
-            .filter(a => a !== '')
-            .map(addr => ({ address: addr, role: 'sub', mode: 'zero', target: null })),
-    ];
-
-    const btn = document.getElementById('save-config-btn');
-    const origText = btn.textContent;
+function generatePDF() {
+    if (!lastPoolResult || !loadedWallets.length) return;
+    const btn = document.getElementById('pdf-btn');
+    btn.textContent = 'Generating…';
     btn.disabled = true;
-    btn.textContent = 'Saving…';
+    setTimeout(() => {
+        try { _renderPDF(); } catch (e) { console.error('PDF error:', e); }
+        btn.textContent = '⇩ PDF Report';
+        btn.disabled = false;
+    }, 30);
+}
 
-    try {
-        const res = await fetch('/api/wallet-config', {
-            method:  'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body:    JSON.stringify({ wallets }),
-        });
-        if (res.ok) {
-            btn.textContent = 'Saved!';
-            setTimeout(() => { btn.textContent = origText; btn.disabled = false; }, 2000);
-        } else {
-            btn.textContent = 'Error';
-            setTimeout(() => { btn.textContent = origText; btn.disabled = false; }, 2000);
-        }
-    } catch {
-        btn.textContent = 'Error';
-        setTimeout(() => { btn.textContent = origText; btn.disabled = false; }, 2000);
+function _renderPDF() {
+    const { jsPDF } = window.jspdf;
+    const doc = new jsPDF({ orientation: 'portrait', unit: 'mm', format: 'a4' });
+
+    const PW = 210, PH = 297, M = 18, CW = 210 - 36, FOOT = 297 - 14;
+
+    // ── Colour palette (RGB arrays) ───────────────────────
+    const C = {
+        primary:  [94,  17,  200],
+        pDim:     [237, 228, 252],
+        text:     [26,  22,  48 ],
+        sub:      [99,  104, 130],
+        line:     [214, 218, 232],
+        bg:       [244, 246, 251],
+        green:    [5,   150, 105],
+        gDim:     [209, 250, 229],
+        red:      [220, 38,  38 ],
+        rDim:     [254, 226, 226],
+        white:    [255, 255, 255],
+    };
+
+    let y = M;
+
+    // ── Helpers ───────────────────────────────────────────
+
+    const shorten = a => a.slice(0, 6) + '…' + a.slice(-4);
+
+    function needSpace(h) {
+        if (y + h > FOOT) { doc.addPage(); y = M; }
     }
-}
 
-async function loadSavedConfig() {
-    try {
-        const res  = await fetch('/api/wallet-config');
-        const data = await res.json();
-        if (!data.config || data.config.length === 0) return;
+    function rule(ly, thickness = 0.25, color = C.line) {
+        doc.setDrawColor(...color);
+        doc.setLineWidth(thickness);
+        doc.line(M, ly, PW - M, ly);
+    }
 
-        const master = data.config.find(w => w.role === 'master');
-        const subs   = data.config.filter(w => w.role === 'sub');
+    function sectionBar(num, title) {
+        needSpace(14);
+        doc.setFillColor(...C.primary);
+        doc.roundedRect(M, y, CW, 8.5, 1.5, 1.5, 'F');
+        doc.setFontSize(8.5);
+        doc.setFont('helvetica', 'bold');
+        doc.setTextColor(...C.white);
+        doc.text(`${num}   ${title.toUpperCase()}`, M + 4, y + 5.8);
+        y += 13;
+    }
 
-        if (master) {
-            document.getElementById('master-address').value = master.address;
+    function miniStats(stats) {
+        needSpace(18);
+        const w = CW / stats.length;
+        doc.setFillColor(...C.bg);
+        doc.roundedRect(M, y, CW, 14, 2, 2, 'F');
+        stats.forEach((s, i) => {
+            const cx = M + i * w + w / 2;
+            doc.setFontSize(12);
+            doc.setFont('helvetica', 'bold');
+            doc.setTextColor(...(s.color || C.primary));
+            doc.text(String(s.val), cx, y + 7, { align: 'center' });
+            doc.setFontSize(6.5);
+            doc.setFont('helvetica', 'normal');
+            doc.setTextColor(...C.sub);
+            doc.text(s.label.toUpperCase(), cx, y + 12, { align: 'center' });
+        });
+        y += 18;
+    }
+
+    function masterBox(wallet, total, mode) {
+        const isAfter  = mode === 'after';
+        const bal      = isAfter ? wallet.post : wallet.balance;
+        const pct      = total > 0 ? (bal / total * 100).toFixed(1) : '0';
+        const bg       = isAfter ? C.gDim    : C.pDim;
+        const accent   = isAfter ? C.green   : C.primary;
+        const badge    = isAfter ? 'AFTER TRANSFER' : 'MASTER WALLET';
+        const badgeW   = isAfter ? 31 : 27;
+
+        needSpace(32);
+        doc.setFillColor(...bg);
+        doc.setDrawColor(...accent);
+        doc.setLineWidth(0.4);
+        doc.roundedRect(M, y, CW, 27, 2, 2, 'FD');
+
+        doc.setFillColor(...accent);
+        doc.roundedRect(M + 4, y + 3.5, badgeW, 5, 1.2, 1.2, 'F');
+        doc.setFontSize(6.5);
+        doc.setFont('helvetica', 'bold');
+        doc.setTextColor(...C.white);
+        doc.text(badge, M + 6, y + 7.3);
+
+        doc.setFontSize(8);
+        doc.setFont('helvetica', 'normal');
+        doc.setTextColor(...C.sub);
+        doc.text(shorten(wallet.address), M + 4, y + 15.5);
+
+        doc.setFontSize(17);
+        doc.setFont('helvetica', 'bold');
+        doc.setTextColor(...C.text);
+        doc.text(`${bal.toFixed(4)} ETH`, M + 4, y + 24.5);
+
+        doc.setFontSize(10);
+        doc.setFont('helvetica', 'bold');
+        doc.setTextColor(...accent);
+        doc.text(`${pct}%`, PW - M - 4, y + 14, { align: 'right' });
+        doc.setFontSize(7.5);
+        doc.setFont('helvetica', 'normal');
+        doc.setTextColor(...C.sub);
+        doc.text('of portfolio', PW - M - 4, y + 20, { align: 'right' });
+
+        if (isAfter && wallet.delta !== undefined) {
+            const d     = wallet.delta;
+            const dClr  = d > 0 ? C.green : d < 0 ? C.red : C.sub;
+            const dText = d === 0 ? '—' : `${d > 0 ? '+' : ''}${d.toFixed(4)} ETH`;
+            doc.setFontSize(8.5);
+            doc.setFont('helvetica', 'bold');
+            doc.setTextColor(...dClr);
+            doc.text(dText, PW - M - 4, y + 25, { align: 'right' });
+        }
+        y += 31;
+    }
+
+    function tbl(head, rows, colStyles, cellHook) {
+        doc.autoTable({
+            startY: y,
+            margin: { left: M, right: M },
+            head:   [head],
+            body:   rows,
+            theme:  'striped',
+            styles: {
+                fontSize:    8.5,
+                cellPadding: { top: 2.5, bottom: 2.5, left: 4, right: 4 },
+                textColor:   [...C.text],
+                lineColor:   [...C.line],
+                lineWidth:   0.15,
+            },
+            headStyles: {
+                fillColor:  [...C.primary],
+                textColor:  [...C.white],
+                fontStyle:  'bold',
+                fontSize:   7.5,
+                lineWidth:  0,
+            },
+            alternateRowStyles: { fillColor: [248, 249, 252] },
+            columnStyles: colStyles || {},
+            didParseCell: cellHook || null,
+        });
+        y = doc.lastAutoTable.finalY + 7;
+    }
+
+    // ── Data ──────────────────────────────────────────────
+
+    const master     = loadedWallets.find(w => w.role === 'master');
+    const subs       = loadedWallets.filter(w => w.role === 'sub');
+    const total      = loadedWallets.reduce((s, w) => s + (!w.error ? (w.balance || 0) : 0), 0);
+
+    const { transfers = [], summary = [], feasible = false, shortfall = 0 } = lastPoolResult;
+    const masterAfter = summary.find(w => w.role === 'master');
+    const subsAfter   = summary.filter(w => w.role === 'sub');
+    const totalAfter  = summary.reduce((s, w) => s + w.post, 0);
+    const totalMoved  = transfers.reduce((s, t) => s + t.amount, 0);
+
+    const now  = new Date();
+    const pad  = n => String(n).padStart(2, '0');
+    const ts   = now.toLocaleString('en-GB', { day: '2-digit', month: 'short', year: 'numeric', hour: '2-digit', minute: '2-digit' });
+    const fname = `pooling-report-${now.getFullYear()}${pad(now.getMonth()+1)}${pad(now.getDate())}-${pad(now.getHours())}${pad(now.getMinutes())}${pad(now.getSeconds())}.pdf`;
+
+    // ══════════════════════════════════════════════════════
+    // HEADER
+    // ══════════════════════════════════════════════════════
+
+    doc.setFillColor(...C.primary);
+    doc.roundedRect(M, y, 9, 9, 1.5, 1.5, 'F');
+    doc.setFontSize(6.5);
+    doc.setFont('helvetica', 'bold');
+    doc.setTextColor(...C.white);
+    doc.text('CT', M + 3, y + 6.2);
+
+    doc.setFontSize(20);
+    doc.setFont('helvetica', 'bold');
+    doc.setTextColor(...C.text);
+    doc.text('Portfolio Pooling Report', M + 13, y + 7.5);
+
+    y += 14;
+    rule(y, 0.5, C.primary);
+    y += 6;
+
+    doc.setFontSize(8);
+    doc.setFont('helvetica', 'normal');
+    doc.setTextColor(...C.sub);
+    doc.text(`Generated  ${ts}`, M, y);
+    y += 6;
+
+    miniStats([
+        { label: 'Total Portfolio',  val: `${total.toFixed(4)} ETH` },
+        { label: 'Wallets',          val: loadedWallets.length       },
+        { label: 'Transfers',        val: transfers.length           },
+        { label: 'ETH Moved',        val: totalMoved.toFixed(4)      },
+    ]);
+    y += 4;
+
+    // ══════════════════════════════════════════════════════
+    // 01 — PORTFOLIO BEFORE
+    // ══════════════════════════════════════════════════════
+
+    sectionBar('01', 'Portfolio Before Pooling');
+
+    if (master) masterBox(master, total, 'before');
+
+    if (subs.length > 0) {
+        doc.setFontSize(7);
+        doc.setFont('helvetica', 'bold');
+        doc.setTextColor(...C.sub);
+        doc.text('SUB-ACCOUNTS', M, y);
+        y += 4;
+
+        tbl(
+            ['Address', 'Balance (ETH)', '% of Portfolio'],
+            subs.map(w => [
+                shorten(w.address),
+                w.error ? 'Error' : w.balance.toFixed(6),
+                (!w.error && total > 0) ? (w.balance / total * 100).toFixed(2) + '%' : '—',
+            ]),
+            { 0: { font: 'courier', fontSize: 8, cellWidth: 60 }, 1: { halign: 'right' }, 2: { halign: 'right' } },
+            d => {
+                if (d.section === 'body' && d.column.index === 2 && d.cell.raw !== '—') {
+                    d.cell.styles.textColor = [...C.primary];
+                    d.cell.styles.fontStyle = 'bold';
+                }
+            }
+        );
+    }
+
+    // ══════════════════════════════════════════════════════
+    // 02 — CASH POOLING CONFIGURATION
+    // ══════════════════════════════════════════════════════
+
+    needSpace(22);
+    sectionBar('02', 'Cash Pooling Configuration');
+
+    tbl(
+        ['Address', 'Role', 'Pooling Mode', 'Target Balance'],
+        lastPoolConfig.map(w => {
+            const isMaster = w.role === 'master';
+            const mode     = isMaster
+                ? (w.target > 0 ? 'Minimum Balance' : 'Hub — No Minimum')
+                : (w.mode === 'zero' ? 'Zero Balance' : 'Target Balance');
+            const target   = (isMaster && w.target > 0) || (!isMaster && w.mode === 'target')
+                ? `${(w.target || 0).toFixed(4)} ETH` : '—';
+            return [shorten(w.address), isMaster ? 'Master' : 'Sub', mode, target];
+        }),
+        { 0: { font: 'courier', fontSize: 8, cellWidth: 55 }, 1: { cellWidth: 18 }, 3: { halign: 'right', cellWidth: 34 } },
+        d => {
+            if (d.section === 'body' && d.column.index === 1 && d.cell.raw === 'Master') {
+                d.cell.styles.textColor = [...C.primary];
+                d.cell.styles.fontStyle = 'bold';
+            }
+        }
+    );
+
+    // ══════════════════════════════════════════════════════
+    // 03 — TRANSFER PLAN
+    // ══════════════════════════════════════════════════════
+
+    needSpace(30);
+    sectionBar('03', 'Transfer Plan');
+
+    if (!feasible) {
+        needSpace(14);
+        doc.setFillColor(...C.rDim);
+        doc.setDrawColor(...C.red);
+        doc.setLineWidth(0.3);
+        doc.roundedRect(M, y, CW, 10, 1.5, 1.5, 'FD');
+        doc.setFontSize(9);
+        doc.setFont('helvetica', 'bold');
+        doc.setTextColor(...C.red);
+        doc.text(`Insufficient funds — Shortfall: ${shortfall.toFixed(4)} ETH`, M + 4, y + 7);
+        y += 16;
+    } else if (transfers.length === 0) {
+        needSpace(12);
+        doc.setFontSize(9);
+        doc.setFont('helvetica', 'italic');
+        doc.setTextColor(...C.sub);
+        doc.text('All wallets are already at target. No transfers required.', M, y + 6);
+        y += 12;
+    } else {
+        const affected = new Set([...transfers.map(t => t.from), ...transfers.map(t => t.to)]);
+        miniStats([
+            { label: 'Total Transfers',   val: transfers.length        },
+            { label: 'ETH Moved',         val: totalMoved.toFixed(4)   },
+            { label: 'Wallets Affected',  val: affected.size           },
+        ]);
+        const typeLabel = { sub_to_sub: 'Sub → Sub', sub_to_master: 'Sub → Master', master_to_sub: 'Master → Sub' };
+        tbl(
+            ['#', 'Type', 'From', 'To', 'Amount (ETH)'],
+            transfers.map((t, i) => [String(i + 1), typeLabel[t.type] || t.type, shorten(t.from), shorten(t.to), t.amount.toFixed(6)]),
+            {
+                0: { cellWidth: 10, halign: 'center' },
+                1: { cellWidth: 34 },
+                2: { font: 'courier', fontSize: 8, cellWidth: 40 },
+                3: { font: 'courier', fontSize: 8, cellWidth: 40 },
+                4: { halign: 'right', fontStyle: 'bold' },
+            },
+            null
+        );
+    }
+
+    // ══════════════════════════════════════════════════════
+    // 04 — PORTFOLIO AFTER
+    // ══════════════════════════════════════════════════════
+
+    if (feasible && summary.length > 0) {
+        needSpace(32);
+        sectionBar('04', 'Projected Portfolio After Transfer');
+
+        if (masterAfter) masterBox(masterAfter, totalAfter, 'after');
+
+        if (subsAfter.length > 0) {
+            doc.setFontSize(7);
+            doc.setFont('helvetica', 'bold');
+            doc.setTextColor(...C.sub);
+            doc.text('SUB-ACCOUNTS — AFTER TRANSFER', M, y);
+            y += 4;
+
+            tbl(
+                ['Address', 'Balance (ETH)', 'Net Change (ETH)', '% of Portfolio'],
+                subsAfter.map(w => {
+                    const d    = w.delta;
+                    const dStr = d === 0 ? 'No change' : `${d > 0 ? '+' : ''}${d.toFixed(6)}`;
+                    return [shorten(w.address), w.post.toFixed(6), dStr, totalAfter > 0 ? (w.post / totalAfter * 100).toFixed(2) + '%' : '—'];
+                }),
+                { 0: { font: 'courier', fontSize: 8, cellWidth: 55 }, 1: { halign: 'right' }, 2: { halign: 'right' }, 3: { halign: 'right' } },
+                d => {
+                    if (d.section === 'body' && d.column.index === 2) {
+                        const v = d.cell.raw;
+                        d.cell.styles.fontStyle = 'bold';
+                        d.cell.styles.textColor = v.startsWith('+') ? [...C.green] : v.startsWith('-') ? [...C.red] : [...C.sub];
+                    }
+                    if (d.section === 'body' && d.column.index === 3) {
+                        d.cell.styles.textColor = [...C.primary];
+                        d.cell.styles.fontStyle = 'bold';
+                    }
+                }
+            );
         }
 
-        // Replace existing subwallet rows with saved ones
-        const list = document.getElementById('subwallet-list');
-        list.innerHTML = '';
-        subs.forEach(w => {
-            const row = document.createElement('div');
-            row.className = 'subwallet-row';
-            row.innerHTML = `
-                <input type="text" placeholder="0x..." class="sub-address"
-                    autocomplete="off" spellcheck="false" value="${w.address}" />
-                <button class="btn-remove" onclick="removeSubwallet(this)" title="Remove">&#x2715;</button>
-            `;
-            list.appendChild(row);
-        });
+        // ══════════════════════════════════════════════════
+        // 05 — SUMMARY OF CHANGES
+        // ══════════════════════════════════════════════════
 
-        dismissSavedBanner();
-    } catch { /* ignore */ }
+        needSpace(30);
+        sectionBar('05', 'Summary of Changes');
+
+        const beforeMap  = Object.fromEntries(loadedWallets.map(w => [w.address.toLowerCase(), w.balance || 0]));
+        const changeRows = summary
+            .map(w => ({
+                label:  `${shorten(w.address)} (${w.role === 'master' ? 'Master' : 'Sub'})`,
+                before: beforeMap[w.address.toLowerCase()] || 0,
+                after:  w.post,
+                delta:  w.delta,
+            }))
+            .sort((a, b) => Math.abs(b.delta) - Math.abs(a.delta));
+
+        tbl(
+            ['Wallet', 'Before (ETH)', 'After (ETH)', 'Net Change (ETH)'],
+            changeRows.map(r => [
+                r.label,
+                r.before.toFixed(6),
+                r.after.toFixed(6),
+                r.delta === 0 ? 'No change' : `${r.delta > 0 ? '+' : ''}${r.delta.toFixed(6)}`,
+            ]),
+            { 0: { cellWidth: 68 }, 1: { halign: 'right' }, 2: { halign: 'right' }, 3: { halign: 'right' } },
+            d => {
+                if (d.section === 'body' && d.column.index === 3) {
+                    const v = d.cell.raw;
+                    d.cell.styles.fontStyle = 'bold';
+                    d.cell.styles.textColor = v.startsWith('+') ? [...C.green] : v.startsWith('-') ? [...C.red] : [...C.sub];
+                }
+            }
+        );
+
+        // Callout boxes: largest gain / largest reduction
+        const gainers = changeRows.filter(r => r.delta > 0).sort((a, b) => b.delta - a.delta);
+        const losers  = changeRows.filter(r => r.delta < 0).sort((a, b) => a.delta - b.delta);
+
+        if (gainers.length > 0 || losers.length > 0) {
+            needSpace(24);
+            const bW = (CW - 5) / 2;
+
+            if (gainers.length > 0) {
+                const g = gainers[0];
+                doc.setFillColor(...C.gDim);
+                doc.setDrawColor(...C.green);
+                doc.setLineWidth(0.3);
+                doc.roundedRect(M, y, bW, 20, 2, 2, 'FD');
+                doc.setFontSize(6.5); doc.setFont('helvetica', 'bold'); doc.setTextColor(...C.green);
+                doc.text('LARGEST GAIN', M + 4, y + 6);
+                doc.setFontSize(11); doc.setFont('helvetica', 'bold'); doc.setTextColor(...C.text);
+                doc.text(`+${g.delta.toFixed(4)} ETH`, M + 4, y + 13);
+                doc.setFontSize(7); doc.setFont('helvetica', 'normal'); doc.setTextColor(...C.sub);
+                doc.text(g.label.length > 28 ? g.label.slice(0, 28) + '…' : g.label, M + 4, y + 18.5);
+            }
+
+            if (losers.length > 0) {
+                const l = losers[0], lx = M + bW + 5;
+                doc.setFillColor(...C.rDim);
+                doc.setDrawColor(...C.red);
+                doc.setLineWidth(0.3);
+                doc.roundedRect(lx, y, bW, 20, 2, 2, 'FD');
+                doc.setFontSize(6.5); doc.setFont('helvetica', 'bold'); doc.setTextColor(...C.red);
+                doc.text('LARGEST REDUCTION', lx + 4, y + 6);
+                doc.setFontSize(11); doc.setFont('helvetica', 'bold'); doc.setTextColor(...C.text);
+                doc.text(`${l.delta.toFixed(4)} ETH`, lx + 4, y + 13);
+                doc.setFontSize(7); doc.setFont('helvetica', 'normal'); doc.setTextColor(...C.sub);
+                doc.text(l.label.length > 28 ? l.label.slice(0, 28) + '…' : l.label, lx + 4, y + 18.5);
+            }
+            y += 26;
+        }
+    }
+
+    // ── Page footers ──────────────────────────────────────
+    const pages = doc.internal.getNumberOfPages();
+    for (let p = 1; p <= pages; p++) {
+        doc.setPage(p);
+        rule(PH - 12, 0.25, C.line);
+        doc.setFontSize(7.5);
+        doc.setFont('helvetica', 'normal');
+        doc.setTextColor(...C.sub);
+        doc.text('CryptoTreasury — Portfolio Pooling Report', M, PH - 7);
+        doc.text(`${p} / ${pages}`, PW - M, PH - 7, { align: 'right' });
+    }
+
+    doc.save(fname);
 }
-
-function dismissSavedBanner() {
-    document.getElementById('saved-config-banner').classList.add('hidden');
-}
-
-// ── Init ──────────────────────────────────────────────────
-document.addEventListener('keydown', e => {
-    if (e.key === 'Escape') closeAuthModal();
-});
-
-checkAuthState();
 
 // ── Copy to Clipboard ─────────────────────────────────────
 document.getElementById('copy-btn').addEventListener('click', copyPlan);

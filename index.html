@@ -20,12 +20,6 @@
                 </div>
             </div>
 
-            <!-- Auth state — populated by JS -->
-            <div id="topbar-auth" class="topbar-auth">
-                <button id="open-auth-btn" class="btn-ghost" onclick="openAuthModal('login')">
-                    Login / Register
-                </button>
-            </div>
         </div>
     </header>
 
@@ -51,26 +45,16 @@
                 <div class="step-num">4</div>
                 <span class="step-name">Results</span>
             </div>
+            <div class="step-connector"></div>
+            <div class="step-item" id="step-5">
+                <div class="step-num">5</div>
+                <span class="step-name">Analysis</span>
+            </div>
         </div>
     </div>
 
     <!-- ── Main ── -->
     <main class="main-content">
-
-        <!-- Saved-config banner — shown when logged in and a saved config exists -->
-        <div id="saved-config-banner" class="saved-config-banner hidden">
-            <div class="scb-left">
-                <span class="scb-icon">&#128190;</span>
-                <div>
-                    <div class="scb-title">Saved configuration found</div>
-                    <div class="scb-desc">Load your wallet addresses from last session.</div>
-                </div>
-            </div>
-            <div class="scb-actions">
-                <button class="btn-accent-sm" onclick="loadSavedConfig()">Load Configuration</button>
-                <button class="btn-ghost-sm" onclick="dismissSavedBanner()">Dismiss</button>
-            </div>
-        </div>
 
         <!-- Step 1: Wallet Setup -->
         <section id="wallet-setup" class="card">
@@ -79,11 +63,6 @@
                     <h2>Wallet Setup</h2>
                     <p class="card-desc">Enter your master wallet and up to 15 subwallets.</p>
                 </div>
-                <!-- Save config button — visible only when logged in -->
-                <button id="save-config-btn" class="btn-secondary hidden"
-                    onclick="saveConfig()">
-                    Save Configuration
-                </button>
             </div>
             <div class="card-body">
                 <div class="setup-grid">
@@ -130,18 +109,6 @@
                 </div>
             </div>
 
-            <!-- Account prompt — shown when not logged in, after portfolio loads -->
-            <div id="account-prompt" class="account-prompt hidden">
-                <p class="ap-text">
-                    Save your wallet configuration for next time &mdash;
-                    <button class="ap-link" onclick="openAuthModal('register')">
-                        create a free account
-                    </button>
-                </p>
-                <button class="ap-dismiss" onclick="document.getElementById('account-prompt').classList.add('hidden')">
-                    &#x2715;
-                </button>
-            </div>
         </section>
 
         <!-- Step 3: Pooling Setup -->
@@ -182,7 +149,10 @@
                     <h2>Transfer Plan</h2>
                     <p class="card-desc">Review each transfer and execute manually.</p>
                 </div>
-                <button id="copy-btn" class="btn-secondary">Copy Plan</button>
+                <div style="display:flex;gap:8px;flex-shrink:0;">
+                    <button id="pdf-btn" class="btn-primary btn-accent" onclick="generatePDF()">&#x21E9; PDF Report</button>
+                    <button id="copy-btn" class="btn-secondary">Copy Plan</button>
+                </div>
             </div>
             <div class="card-body">
                 <div id="infeasible-msg" class="alert alert-error hidden"></div>
@@ -204,22 +174,25 @@
                         <tbody id="transfer-body"></tbody>
                     </table>
 
-                    <!-- After-Transfer Portfolio View -->
-                    <div id="after-portfolio-section" class="after-portfolio-wrap hidden">
-                        <div class="after-section-header">
-                            <span class="after-section-tag">After Transfer</span>
-                            <p class="after-section-desc">
-                                Projected portfolio state after executing all transfers above.
-                            </p>
-                        </div>
-                        <div id="after-master-overview" class="master-overview after-master"></div>
-                        <div class="portfolio-body">
-                            <div id="after-sub-accounts" class="accounts-panel"></div>
-                            <div class="chart-panel">
-                                <svg id="after-chart" viewBox="0 0 200 200"
-                                    xmlns="http://www.w3.org/2000/svg"></svg>
-                            </div>
-                        </div>
+                </div>
+            </div>
+        </section>
+
+        <!-- Step 5: After Transfer Analysis -->
+        <section id="after-view" class="card hidden">
+            <div class="card-header">
+                <div>
+                    <h2>After Transfer Analysis</h2>
+                    <p class="card-desc">Projected portfolio state after executing all transfers.</p>
+                </div>
+            </div>
+            <div class="card-body">
+                <div id="after-master-overview" class="master-overview"></div>
+                <div class="portfolio-body">
+                    <div id="after-sub-accounts" class="accounts-panel"></div>
+                    <div class="chart-panel">
+                        <svg id="after-chart" viewBox="0 0 200 200"
+                            xmlns="http://www.w3.org/2000/svg"></svg>
                     </div>
                 </div>
             </div>
@@ -234,61 +207,9 @@
 
 </div>
 
-<!-- ── Auth Modal ── -->
-<div id="auth-modal" class="modal-overlay hidden" onclick="handleModalBackdrop(event)">
-    <div class="modal-card">
-        <button class="modal-close" onclick="closeAuthModal()">&#x2715;</button>
 
-        <div class="modal-header">
-            <div class="brand-mark" style="width:30px;height:30px;font-size:11px;">CT</div>
-            <h2 class="modal-title">CryptoTreasury</h2>
-        </div>
-
-        <div class="modal-tabs">
-            <button id="tab-login"    class="modal-tab active" onclick="switchTab('login')">Login</button>
-            <button id="tab-register" class="modal-tab"        onclick="switchTab('register')">Register</button>
-        </div>
-
-        <!-- Login form -->
-        <form id="login-form" class="modal-form" onsubmit="submitLogin(event)">
-            <div class="mfield">
-                <label class="field-label">Email</label>
-                <input type="email" id="login-email" class="address-input"
-                    placeholder="you@example.com" autocomplete="email" />
-            </div>
-            <div class="mfield">
-                <label class="field-label">Password</label>
-                <input type="password" id="login-password" class="address-input"
-                    placeholder="Your password" autocomplete="current-password" />
-            </div>
-            <p id="login-error" class="error-msg"></p>
-            <button type="submit" id="login-submit-btn" class="btn-primary" style="margin-top:4px;">
-                <span class="btn-text">Login</span>
-                <span class="btn-spinner hidden"></span>
-            </button>
-        </form>
-
-        <!-- Register form -->
-        <form id="register-form" class="modal-form hidden" onsubmit="submitRegister(event)">
-            <div class="mfield">
-                <label class="field-label">Email</label>
-                <input type="email" id="reg-email" class="address-input"
-                    placeholder="you@example.com" autocomplete="email" />
-            </div>
-            <div class="mfield">
-                <label class="field-label">Password</label>
-                <input type="password" id="reg-password" class="address-input"
-                    placeholder="Min 8 characters" autocomplete="new-password" />
-            </div>
-            <p id="reg-error" class="error-msg"></p>
-            <button type="submit" id="reg-submit-btn" class="btn-primary" style="margin-top:4px;">
-                <span class="btn-text">Create Account</span>
-                <span class="btn-spinner hidden"></span>
-            </button>
-        </form>
-    </div>
-</div>
-
+<script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf-autotable/3.8.2/jspdf.plugin.autotable.min.js"></script>
 <script src="./static/app.js"></script>
 </body>
 </html>

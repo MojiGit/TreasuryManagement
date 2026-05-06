@@ -2,10 +2,10 @@
 # CryptoTreasury — FastAPI Backend
 # ─────────────────────────────────────────────────────────
 
-from fastapi import FastAPI, HTTPException, Depends, Response, Request
+from fastapi import FastAPI, Request
 from fastapi.staticfiles import StaticFiles
 from fastapi.templating import Jinja2Templates
-from pydantic import BaseModel, EmailStr, field_validator
+from pydantic import BaseModel
 from typing import List, Optional
 import sys
 import os
@@ -18,11 +18,6 @@ from pooling import (
     validate_feasibility,
     generate_transfer_plan,
     calculate_before_after,
-)
-from auth import (
-    hash_password, verify_password,
-    create_token, COOKIE_NAME, EXPIRE_DAYS,
-    get_user_id_from_cookie,
 )
 
 app = FastAPI()
@@ -40,22 +35,6 @@ class WalletInput(BaseModel):
 
 
 class LoadRequest(BaseModel):
-    wallets: List[WalletInput]
-
-
-class AuthRequest(BaseModel):
-    email:    str
-    password: str
-
-    @field_validator("password")
-    @classmethod
-    def password_length(cls, v):
-        if len(v) < 8:
-            raise ValueError("Password must be at least 8 characters")
-        return v
-
-
-class SaveConfigRequest(BaseModel):
     wallets: List[WalletInput]
 
 
@@ -98,107 +77,3 @@ async def pool(payload: LoadRequest):
     transfers = generate_transfer_plan(results)
     summary   = calculate_before_after(wallets_with_bals, transfers, master_minimum)
     return {"feasible": True, "shortfall": 0, "transfers": transfers, "summary": summary}
-
-
-# ── Auth endpoints ────────────────────────────────────────
-
-def _get_db():
-    from database import get_db
-    try:
-        return get_db()
-    except RuntimeError as e:
-        raise HTTPException(503, detail=str(e))
-
-
-@app.post("/api/auth/register", status_code=201)
-async def register(payload: AuthRequest, response: Response):
-    db = _get_db()
-
-    # Check if email already exists
-    existing = db.table("users").select("id").eq("email", payload.email.lower()).execute()
-    if existing.data:
-        raise HTTPException(400, detail="Email already registered")
-
-    result = db.table("users").insert({
-        "email":         payload.email.lower(),
-        "password_hash": hash_password(payload.password),
-    }).execute()
-
-    user = result.data[0]
-    token = create_token(user["id"])
-    response.set_cookie(
-        key=COOKIE_NAME, value=token,
-        httponly=True, samesite="lax",
-        max_age=EXPIRE_DAYS * 86400,
-    )
-    return {"user_id": user["id"], "email": user["email"]}
-
-
-@app.post("/api/auth/login")
-async def login(payload: AuthRequest, response: Response):
-    db = _get_db()
-
-    result = db.table("users").select("*").eq("email", payload.email.lower()).execute()
-    user   = result.data[0] if result.data else None
-
-    if not user or not verify_password(payload.password, user["password_hash"]):
-        raise HTTPException(401, detail="Invalid email or password")
-
-    token = create_token(user["id"])
-    response.set_cookie(
-        key=COOKIE_NAME, value=token,
-        httponly=True, samesite="lax",
-        max_age=EXPIRE_DAYS * 86400,
-    )
-    return {"user_id": user["id"], "email": user["email"]}
-
-
-@app.post("/api/auth/logout")
-async def logout(response: Response):
-    response.delete_cookie(COOKIE_NAME)
-    return {"ok": True}
-
-
-@app.get("/api/auth/me")
-async def me(user_id: Optional[str] = Depends(get_user_id_from_cookie)):
-    if not user_id:
-        return {"user_id": None, "email": None}
-
-    try:
-        db     = _get_db()
-        result = db.table("users").select("id, email").eq("id", user_id).execute()
-        user   = result.data[0] if result.data else None
-        if not user:
-            return {"user_id": None, "email": None}
-        return {"user_id": user["id"], "email": user["email"]}
-    except HTTPException:
-        return {"user_id": None, "email": None}
-
-
-# ── Wallet config endpoints ───────────────────────────────
-
-@app.get("/api/wallet-config")
-async def get_wallet_config(user_id: Optional[str] = Depends(get_user_id_from_cookie)):
-    if not user_id:
-        return {"config": None}
-    db     = _get_db()
-    result = db.table("wallet_configs").select("config").eq("user_id", user_id).execute()
-    config = result.data[0]["config"] if result.data else None
-    return {"config": config}
-
-
-@app.post("/api/wallet-config")
-async def save_wallet_config(
-    payload: SaveConfigRequest,
-    user_id: Optional[str] = Depends(get_user_id_from_cookie),
-):
-    if not user_id:
-        raise HTTPException(401, detail="Login required to save configuration")
-
-    db = _get_db()
-    db.table("wallet_configs").upsert({
-        "user_id":    user_id,
-        "config":     [w.model_dump() for w in payload.wallets],
-        "updated_at": "now()",
-    }).execute()
-    return {"ok": True}
