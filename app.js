@@ -6,15 +6,15 @@ let loadedWallets  = [];
 let lastPoolConfig = [];   // wallet config captured before each /api/pool call
 let lastPoolResult = null; // response from /api/pool
 
-// Colour palette for chart slices — muted professional palette for light theme
+// Chart palette — muted, professional; blues/indigo primary family
 const CHART_COLORS = [
-    '#3B82F6', '#8B5CF6', '#F59E0B', '#059669',
-    '#EF4444', '#06B6D4', '#EC4899', '#6366F1',
-    '#F97316', '#14B8A6', '#84CC16', '#A855F7',
-    '#0EA5E9', '#F43F5E', '#16A34A', '#D97706',
+    '#2563EB', '#0369A1', '#7C3AED', '#0891B2',
+    '#15803D', '#B45309', '#B91C1C', '#4338CA',
+    '#6366F1', '#0284C7', '#059669', '#92400E',
+    '#475569', '#1D4ED8', '#0EA5E9', '#3B82F6',
 ];
 
-// Master wallet — neutral slate tint
+// Master wallet — neutral slate
 const MASTER_CHART_COLOR = '#94A3B8';
 
 // ── ETH / USD Price ───────────────────────────────────────
@@ -155,8 +155,8 @@ function validateWalletInputs(masterAddress, subAddresses) {
 function isValidEthAddress(addr) { return /^0x[0-9a-fA-F]{40}$/.test(addr); }
 
 function highlightInput(input) {
-    input.style.borderColor = '#DC2626';
-    input.style.boxShadow   = '0 0 0 3px rgba(220,38,38,0.12)';
+    input.style.borderColor = '#B91C1C';
+    input.style.boxShadow   = '0 0 0 2px #FEF2F2';
 }
 
 // ── Colour helpers ────────────────────────────────────────
@@ -420,7 +420,7 @@ function displayPortfolio(data) {
                 return `
                     <div class="account-row" data-address="${w.address}">
                         <div class="account-dot"
-                            style="background:${w._color};box-shadow:0 0 6px ${w._color}80;"></div>
+                            style="background:${w._color};"></div>
                         <div class="account-info">
                             <div class="account-addr">${short}</div>
                             <div class="account-balance">${balEth}</div>
@@ -899,7 +899,7 @@ function renderAfterPortfolio(data) {
         return `
             <div class="account-row" data-address="${w.address}">
                 <div class="account-dot"
-                    style="background:${color};box-shadow:0 0 6px ${color}80;"></div>
+                    style="background:${color};"></div>
                 <div class="account-info">
                     <div class="account-addr">${short}</div>
                     <div class="account-after-bal">
@@ -964,16 +964,16 @@ function _renderPDF() {
 
     // ── Colour palette (RGB arrays) ───────────────────────
     const C = {
-        primary:  [94,  17,  200],
-        pDim:     [237, 228, 252],
-        text:     [26,  22,  48 ],
-        sub:      [99,  104, 130],
-        line:     [214, 218, 232],
-        bg:       [244, 246, 251],
-        green:    [5,   150, 105],
-        gDim:     [209, 250, 229],
-        red:      [220, 38,  38 ],
-        rDim:     [254, 226, 226],
+        primary:  [29,  78,  216],   // blue-700
+        pDim:     [239, 246, 255],   // blue-50
+        text:     [15,  23,  42 ],   // slate-900
+        sub:      [71,  85,  105],   // slate-600
+        line:     [226, 232, 240],   // slate-200
+        bg:       [248, 250, 252],   // slate-50
+        green:    [21,  128, 61 ],   // green-700
+        gDim:     [240, 253, 244],   // green-50
+        red:      [185, 28,  28 ],   // red-700
+        rDim:     [254, 242, 242],   // red-50
         white:    [255, 255, 255],
     };
 
