@@ -1003,6 +1003,40 @@ body {
   letter-spacing: 0.01em;
 }
 
+/* ═══ Pool Config Cell ═══════════════════════════════════════════ */
+.pool-config { display: flex; flex-direction: column; gap: 5px; }
+
+/* ═══ Token Badges (Transfer Table) ════════════════════════════ */
+.token-badge {
+  display: inline-flex;
+  align-items: center;
+  padding: 2px 7px;
+  border-radius: 5px;
+  font-size: 10px;
+  font-weight: 700;
+  letter-spacing: 0.05em;
+  text-transform: uppercase;
+  white-space: nowrap;
+}
+.token-eth  { background: var(--purple-dim);  color: var(--purple-light); }
+.token-usdt { background: var(--green-dim);   color: var(--green); }
+
+/* ═══ USDT Balance Lines ═════════════════════════════════════════ */
+.master-usdt-bal {
+  font-family: var(--font-mono);
+  font-size: 14px;
+  font-weight: 600;
+  color: var(--green);
+  margin-top: 2px;
+  letter-spacing: -0.02em;
+}
+.account-usdt {
+  font-family: var(--font-mono);
+  font-size: 10.5px;
+  color: var(--green);
+  margin-top: 1px;
+}
+
 /* ═══ USD Values ═════════════════════════════════════════════════ */
 .val-usd {
   display: block;

@@ -48,6 +48,14 @@ function usdSpan(eth) {
     return v ? `<span class="val-usd">${v}</span>` : '';
 }
 
+// Format a USDT amount (already in USD). Always returns a string.
+function fmtUsdt(val) {
+    if (val == null) return null;
+    if (val >= 1e9) return '$' + (val / 1e9).toFixed(2) + 'B';
+    if (val >= 1e6) return '$' + (val / 1e6).toFixed(2) + 'M';
+    return '$' + val.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+}
+
 // ── Step Progress ─────────────────────────────────────────
 function setStep(active) {
     for (let i = 1; i <= 5; i++) {
@@ -338,19 +346,22 @@ function renderDonutChartTo(svgEl, wallets, total, containerId) {
 }
 
 function displayPortfolio(data) {
-    const total  = data.total_eth;
-    const master = data.wallets.find(w => w.role === 'master');
-    const subs   = data.wallets.filter(w => w.role === 'sub');
+    const total     = data.total_eth;
+    const totalUsdt = data.total_usdt || 0;
+    const master    = data.wallets.find(w => w.role === 'master');
+    const subs      = data.wallets.filter(w => w.role === 'sub');
 
     // Assign chart colours to sub-wallets (index-stable)
     subs.forEach((w, i) => { w._color = CHART_COLORS[i % CHART_COLORS.length]; });
 
     // ── Master hero ───────────────────────────────────────
-    const masterShort = master.address.slice(0,6) + '...' + master.address.slice(-4);
-    const masterPct   = total > 0 && !master.error
+    const masterShort  = master.address.slice(0,6) + '...' + master.address.slice(-4);
+    const masterPct    = total > 0 && !master.error
         ? (master.balance / total * 100).toFixed(1) : '0';
-    const masterBal   = master.error ? 'Error' : master.balance.toFixed(4);
-    const totalUsd    = fmtUsd(total);
+    const masterBal    = master.error ? 'Error' : master.balance.toFixed(4);
+    const masterUsdt   = !master.error && master.usdt_balance > 0
+        ? fmtUsdt(master.usdt_balance) : null;
+    const totalUsd     = fmtUsd(total);
 
     document.getElementById('master-overview').innerHTML = `
         <div class="master-left">
@@ -358,7 +369,8 @@ function displayPortfolio(data) {
             <div class="master-addr">${masterShort}</div>
             <div class="master-balance">${masterBal} <span class="master-unit">ETH</span></div>
             ${master.error ? '' : usdSpan(master.balance)}
-            <div class="master-share">${masterPct}% of total portfolio</div>
+            ${masterUsdt ? `<div class="master-usdt-bal">${masterUsdt} USDT</div>` : ''}
+            <div class="master-share">${masterPct}% of ETH portfolio</div>
         </div>
         <div class="portfolio-totals">
             <div class="ptotal-item">
@@ -370,6 +382,12 @@ function displayPortfolio(data) {
             <div class="ptotal-item">
                 <div class="ptotal-value">${totalUsd}</div>
                 <div class="ptotal-label">Total USD</div>
+            </div>
+            <div class="ptotal-divider"></div>` : ''}
+            ${totalUsdt > 0 ? `
+            <div class="ptotal-item">
+                <div class="ptotal-value">${fmtUsdt(totalUsdt)}</div>
+                <div class="ptotal-label">Total USDT</div>
             </div>
             <div class="ptotal-divider"></div>` : ''}
             <div class="ptotal-item">
@@ -394,9 +412,11 @@ function displayPortfolio(data) {
                 Sub-Accounts <span class="accounts-count">${subs.length}</span>
             </div>
             ${subs.map(w => {
-                const short   = w.address.slice(0,6) + '...' + w.address.slice(-4);
-                const pct     = total > 0 && !w.error ? (w.balance / total * 100).toFixed(1) : '0';
-                const balEth  = w.error ? 'Error' : w.balance.toFixed(4) + ' ETH';
+                const short    = w.address.slice(0,6) + '...' + w.address.slice(-4);
+                const pct      = total > 0 && !w.error ? (w.balance / total * 100).toFixed(1) : '0';
+                const balEth   = w.error ? 'Error' : w.balance.toFixed(4) + ' ETH';
+                const usdtLine = !w.error && w.usdt_balance > 0
+                    ? `<div class="account-usdt">${fmtUsdt(w.usdt_balance)} USDT</div>` : '';
                 return `
                     <div class="account-row" data-address="${w.address}">
                         <div class="account-dot"
@@ -405,6 +425,7 @@ function displayPortfolio(data) {
                             <div class="account-addr">${short}</div>
                             <div class="account-balance">${balEth}</div>
                             ${w.error ? '' : usdSpan(w.balance)}
+                            ${usdtLine}
                         </div>
                         <div class="account-pct" style="color:${w._color}">${pct}%</div>
                     </div>`;
@@ -434,13 +455,14 @@ function buildPoolingSetup(wallets) {
         const isMaster  = wallet.role === 'master';
         const roleClass = isMaster ? 'role-master' : 'role-sub';
         const roleName  = isMaster ? 'Master' : 'Sub';
+        const usdt      = wallet.usdt_balance != null ? wallet.usdt_balance.toFixed(2) : '0.00';
 
         const row = document.createElement('tr');
         row.dataset.index   = index;
         row.dataset.address = wallet.address;
         row.dataset.role    = wallet.role;
 
-        // Currency toggle only available when ETH price is loaded
+        // ETH/USD currency toggle — only rendered when ETH price is loaded
         const toggleBtn = ethUsdPrice
             ? '<button class="currency-toggle" onclick="toggleTargetCurrency(this)" disabled>ETH</button>'
             : '';
@@ -449,45 +471,70 @@ function buildPoolingSetup(wallets) {
             row.innerHTML = `
                 <td class="cell-mono">${short}</td>
                 <td><span class="badge ${roleClass}">${roleName}</span></td>
-                <td class="cell-num">${wallet.balance.toFixed(4)}</td>
+                <td class="cell-num">${wallet.balance.toFixed(4)} ETH</td>
                 <td>
-                    <select class="mode-select master-mode-select"
-                        onchange="toggleMasterTarget(this)">
-                        <option value="hub">Hub (no minimum)</option>
-                        <option value="minimum">Minimum Balance</option>
-                    </select>
-                </td>
-                <td>
-                    <div class="target-field">
-                        <div class="target-input-row">
-                            <input type="number" class="target-input master-target-input"
-                                placeholder="Min ETH" step="0.0001" min="0" disabled
-                                data-currency="eth" oninput="updateConversionHint(this)" />
-                            ${toggleBtn}
+                    <div class="pool-config">
+                        <select class="mode-select master-mode-select"
+                            onchange="toggleMasterTarget(this)">
+                            <option value="hub">Hub (no minimum)</option>
+                            <option value="minimum">Minimum Balance</option>
+                        </select>
+                        <div class="target-field">
+                            <div class="target-input-row">
+                                <input type="number" class="target-input master-target-input"
+                                    placeholder="Min ETH" step="0.0001" min="0" disabled
+                                    data-currency="eth" oninput="updateConversionHint(this)" />
+                                ${toggleBtn}
+                            </div>
+                            <span class="conversion-hint"></span>
                         </div>
-                        <span class="conversion-hint"></span>
+                    </div>
+                </td>
+                <td class="cell-num">${usdt} USDT</td>
+                <td>
+                    <div class="pool-config">
+                        <select class="mode-select master-usdt-mode-select"
+                            onchange="toggleMasterUsdtTarget(this)">
+                            <option value="hub">Hub (no minimum)</option>
+                            <option value="minimum">Minimum Balance</option>
+                        </select>
+                        <input type="number" class="target-input master-usdt-target-input"
+                            placeholder="Min USDT" step="0.01" min="0" disabled />
                     </div>
                 </td>`;
         } else {
             row.innerHTML = `
                 <td class="cell-mono">${short}</td>
                 <td><span class="badge ${roleClass}">${roleName}</span></td>
-                <td class="cell-num">${wallet.balance.toFixed(4)}</td>
+                <td class="cell-num">${wallet.balance.toFixed(4)} ETH</td>
                 <td>
-                    <select class="mode-select" onchange="toggleTarget(this)">
-                        <option value="zero">Zero Balance</option>
-                        <option value="target">Target Balance</option>
-                    </select>
-                </td>
-                <td>
-                    <div class="target-field">
-                        <div class="target-input-row">
-                            <input type="number" class="target-input sub-target-input"
-                                placeholder="e.g. 1.0" step="0.0001" min="0" disabled
-                                data-currency="eth" oninput="updateConversionHint(this)" />
-                            ${toggleBtn}
+                    <div class="pool-config">
+                        <select class="mode-select eth-mode-select"
+                            onchange="toggleTarget(this)">
+                            <option value="zero">Zero Balance</option>
+                            <option value="target">Target Balance</option>
+                        </select>
+                        <div class="target-field">
+                            <div class="target-input-row">
+                                <input type="number" class="target-input sub-target-input"
+                                    placeholder="e.g. 1.0" step="0.0001" min="0" disabled
+                                    data-currency="eth" oninput="updateConversionHint(this)" />
+                                ${toggleBtn}
+                            </div>
+                            <span class="conversion-hint"></span>
                         </div>
-                        <span class="conversion-hint"></span>
+                    </div>
+                </td>
+                <td class="cell-num">${usdt} USDT</td>
+                <td>
+                    <div class="pool-config">
+                        <select class="mode-select usdt-mode-select"
+                            onchange="toggleUsdtTarget(this)">
+                            <option value="zero">Zero Balance</option>
+                            <option value="target">Target Balance</option>
+                        </select>
+                        <input type="number" class="target-input sub-usdt-target-input"
+                            placeholder="e.g. 100" step="0.01" min="0" disabled />
                     </div>
                 </td>`;
         }
@@ -500,7 +547,7 @@ function buildPoolingSetup(wallets) {
 }
 
 function toggleTarget(select) {
-    const row    = select.closest('tr');
+    const row    = select.closest('.pool-config');
     const input  = row.querySelector('.sub-target-input');
     const toggle = row.querySelector('.currency-toggle');
     const hint   = row.querySelector('.conversion-hint');
@@ -514,7 +561,7 @@ function toggleTarget(select) {
 }
 
 function toggleMasterTarget(select) {
-    const row    = select.closest('tr');
+    const row    = select.closest('.pool-config');
     const input  = row.querySelector('.master-target-input');
     const toggle = row.querySelector('.currency-toggle');
     const hint   = row.querySelector('.conversion-hint');
@@ -524,6 +571,24 @@ function toggleMasterTarget(select) {
     if (toggle) toggle.disabled = !enable;
     input.value = '';
     if (hint) { hint.textContent = ''; hint.style.display = 'none'; }
+    if (enable) input.focus();
+}
+
+function toggleUsdtTarget(select) {
+    const row    = select.closest('.pool-config');
+    const input  = row.querySelector('.sub-usdt-target-input');
+    const enable = select.value === 'target';
+    input.disabled = !enable;
+    input.value = '';
+    if (enable) input.focus();
+}
+
+function toggleMasterUsdtTarget(select) {
+    const row    = select.closest('.pool-config');
+    const input  = row.querySelector('.master-usdt-target-input');
+    const enable = select.value === 'minimum';
+    input.disabled = !enable;
+    input.value = '';
     if (enable) input.focus();
 }
 
@@ -580,26 +645,43 @@ async function runPool() {
     document.querySelectorAll('#pooling-body tr').forEach(row => {
         const address = row.dataset.address;
         const role    = row.dataset.role;
+
         if (role === 'master') {
-            const mode = row.querySelector('.master-mode-select').value;
-            let target = 0;
-            if (mode === 'minimum') {
+            // ETH config
+            const ethMode = row.querySelector('.master-mode-select').value;
+            let ethTarget = 0;
+            if (ethMode === 'minimum') {
                 const inp = row.querySelector('.master-target-input');
                 const raw = parseFloat(inp.value) || 0;
-                target    = inp.dataset.currency === 'usd' && ethUsdPrice
+                ethTarget = inp.dataset.currency === 'usd' && ethUsdPrice
                     ? raw / ethUsdPrice : raw;
             }
-            wallets.push({ address, role, mode: null, target });
+            // USDT config
+            const usdtMode = row.querySelector('.master-usdt-mode-select').value;
+            const usdtTarget = usdtMode === 'minimum'
+                ? (parseFloat(row.querySelector('.master-usdt-target-input').value) || 0)
+                : 0;
+
+            wallets.push({ address, role, mode: null, target: ethTarget,
+                           usdt_mode: null, usdt_target: usdtTarget });
         } else {
-            const mode = row.querySelector('.mode-select').value;
-            let target = 0;
-            if (mode === 'target') {
+            // ETH config
+            const ethMode = row.querySelector('.eth-mode-select').value;
+            let ethTarget = 0;
+            if (ethMode === 'target') {
                 const inp = row.querySelector('.sub-target-input');
                 const raw = parseFloat(inp.value) || 0;
-                target    = inp.dataset.currency === 'usd' && ethUsdPrice
+                ethTarget = inp.dataset.currency === 'usd' && ethUsdPrice
                     ? raw / ethUsdPrice : raw;
             }
-            wallets.push({ address, role, mode, target });
+            // USDT config
+            const usdtMode = row.querySelector('.usdt-mode-select').value;
+            const usdtTarget = usdtMode === 'target'
+                ? (parseFloat(row.querySelector('.sub-usdt-target-input').value) || 0)
+                : 0;
+
+            wallets.push({ address, role, mode: ethMode, target: ethTarget,
+                           usdt_mode: usdtMode, usdt_target: usdtTarget });
         }
     });
 
@@ -634,29 +716,34 @@ function displayResults(data) {
     section.scrollIntoView({ behavior: 'smooth' });
     setStep(4);
 
-    if (!data.feasible) {
-        infeasible.textContent =
-            `Insufficient funds. Shortfall: ${data.shortfall.toFixed(4)} ETH. ` +
-            `Increase the master balance or reduce subwallet targets.`;
+    // Show infeasibility warnings (one or both tokens may be infeasible)
+    const msgs = [];
+    if (!data.eth_feasible)
+        msgs.push(`ETH — Insufficient funds. Shortfall: ${data.eth_shortfall.toFixed(4)} ETH.`);
+    if (!data.usdt_feasible)
+        msgs.push(`USDT — Insufficient funds. Shortfall: ${fmtUsdt(data.usdt_shortfall)}.`);
+
+    if (msgs.length > 0) {
+        infeasible.innerHTML = msgs.join('<br>') +
+            '<br><small>Increase the master balance or reduce subwallet targets.</small>';
         infeasible.classList.remove('hidden');
-        transferDiv.classList.add('hidden');
-        document.getElementById('after-view').classList.add('hidden');
-        return;
+    } else {
+        infeasible.classList.add('hidden');
     }
 
-    infeasible.classList.add('hidden');
     transferDiv.classList.remove('hidden');
 
-    // Stat cards
-    const totalETH = data.transfers.reduce((s, t) => s + t.amount, 0);
-    const affected  = new Set([
-        ...data.transfers.map(t => t.from),
-        ...data.transfers.map(t => t.to)
-    ]).size;
+    const transfers   = data.transfers || [];
+    const ethXfers    = transfers.filter(t => !t.token || t.token === 'ETH');
+    const usdtXfers   = transfers.filter(t => t.token === 'USDT');
+    const totalETH    = ethXfers.reduce((s, t) => s + t.amount, 0);
+    const totalUSDT   = usdtXfers.reduce((s, t) => s + t.amount, 0);
+    const affected    = new Set([...transfers.map(t => t.from), ...transfers.map(t => t.to)]).size;
 
+    // Stat cards
     document.getElementById('results-summary').innerHTML = `
         <div class="stat-card">
-            <div class="stat-card-value">${data.transfers.length}</div>
+            <div class="stat-card-value">${transfers.length}</div>
             <div class="stat-card-label">Transfers</div>
         </div>
         <div class="stat-card">
@@ -664,42 +751,52 @@ function displayResults(data) {
             <div class="stat-card-label">ETH Moved</div>
             ${usdSpan(totalETH)}
         </div>
+        ${totalUSDT > 0 ? `
         <div class="stat-card">
-            <div class="stat-card-value">${affected}</div>
+            <div class="stat-card-value">${fmtUsdt(totalUSDT)}</div>
+            <div class="stat-card-label">USDT Moved</div>
+        </div>` : ''}
+        <div class="stat-card">
+            <div class="stat-card-value">${affected || '—'}</div>
             <div class="stat-card-label">Wallets Affected</div>
         </div>`;
 
-    // Transfer table
+    // Transfer table — sorted: ETH first, then USDT; within each: sub→sub, sub→master, master→sub
     const typeLabels = {
         sub_to_sub:     { label: 'Sub → Sub',    css: 'type-sub-sub'    },
         sub_to_master:  { label: 'Sub → Master', css: 'type-sub-master' },
         master_to_sub:  { label: 'Master → Sub', css: 'type-master-sub' },
     };
     const typeOrder = { sub_to_sub: 1, sub_to_master: 2, master_to_sub: 3 };
-    const sorted    = [...data.transfers].sort((a, b) => typeOrder[a.type] - typeOrder[b.type]);
+    const tokenOrder = t => t.token === 'USDT' ? 1 : 0;
+    const sorted = [...transfers].sort((a, b) =>
+        tokenOrder(a) - tokenOrder(b) || typeOrder[a.type] - typeOrder[b.type]
+    );
 
     const tbody = document.getElementById('transfer-body');
     tbody.innerHTML = '';
 
     if (sorted.length === 0) {
         tbody.innerHTML = `
-            <tr class="empty-row"><td colspan="5">
+            <tr class="empty-row"><td colspan="6">
                 <div class="empty-icon">&#10003;</div>
                 <div class="empty-text">All wallets are already at target</div>
                 <div class="empty-sub">No transfers required.</div>
             </td></tr>`;
     } else {
         sorted.forEach((t, i) => {
-            const from  = t.from.slice(0,6) + '...' + t.from.slice(-4);
-            const to    = t.to.slice(0,6)   + '...' + t.to.slice(-4);
-            const tInfo = typeLabels[t.type];
-            const row   = document.createElement('tr');
+            const from   = t.from.slice(0,6) + '...' + t.from.slice(-4);
+            const to     = t.to.slice(0,6)   + '...' + t.to.slice(-4);
+            const tInfo  = typeLabels[t.type] || { label: t.type, css: '' };
+            const token  = t.token || 'ETH';
+            const row    = document.createElement('tr');
             row.innerHTML = `
                 <td class="cell-num">${i + 1}</td>
                 <td><span class="type-badge ${tInfo.css}">${tInfo.label}</span></td>
+                <td><span class="token-badge token-${token.toLowerCase()}">${token}</span></td>
                 <td class="cell-mono">${from}</td>
                 <td class="cell-mono">${to}</td>
-                <td class="cell-num">${t.amount.toFixed(4)} ETH</td>`;
+                <td class="cell-num">${t.amount.toFixed(4)} ${token}</td>`;
             tbody.appendChild(row);
         });
     }
@@ -710,9 +807,10 @@ function displayResults(data) {
 
 // ── Step 4b: After-Transfer Portfolio View ────────────────
 function renderAfterPortfolio(data) {
-    if (!data.feasible || !data.summary || data.summary.length === 0) return;
+    if (!data.summary || data.summary.length === 0) return;
 
     const total       = data.summary.reduce((s, w) => s + w.post, 0);
+    const totalUsdt   = data.summary.reduce((s, w) => s + (w.usdt_post || 0), 0);
     const masterEntry = data.summary.find(w => w.role === 'master');
     const subEntries  = data.summary.filter(w => w.role === 'sub');
 
@@ -724,6 +822,8 @@ function renderAfterPortfolio(data) {
     const mDeltaStr   = mDelta === 0
         ? 'No change'
         : `${mDelta > 0 ? '↑ +' : '↓ '}${mDelta.toFixed(4)} ETH`;
+    const mUsdtDelta  = masterEntry.usdt_delta || 0;
+    const mUsdtPost   = masterEntry.usdt_post  || 0;
     const afterTotalUsd = fmtUsd(total);
 
     document.getElementById('after-master-overview').innerHTML = `
@@ -732,8 +832,13 @@ function renderAfterPortfolio(data) {
             <div class="master-addr">${mShort}</div>
             <div class="master-balance">${masterEntry.post.toFixed(4)} <span class="master-unit">ETH</span></div>
             ${usdSpan(masterEntry.post)}
+            ${mUsdtPost > 0 ? `<div class="master-usdt-bal">${fmtUsdt(mUsdtPost)} USDT</div>` : ''}
             <div class="master-delta" style="color:${mDeltaColor}">${mDeltaStr}</div>
-            <div class="master-share">${mPct}% of total portfolio</div>
+            ${mUsdtDelta !== 0 ? `
+            <div class="master-delta" style="color:${mUsdtDelta > 0 ? 'var(--green)' : 'var(--red)'}">
+                ${mUsdtDelta > 0 ? '↑ +' : '↓ '}${mUsdtDelta.toFixed(2)} USDT
+            </div>` : ''}
+            <div class="master-share">${mPct}% of ETH portfolio</div>
         </div>
         <div class="portfolio-totals">
             <div class="ptotal-item">
@@ -745,6 +850,12 @@ function renderAfterPortfolio(data) {
             <div class="ptotal-item">
                 <div class="ptotal-value">${afterTotalUsd}</div>
                 <div class="ptotal-label">Total USD</div>
+            </div>
+            <div class="ptotal-divider"></div>` : ''}
+            ${totalUsdt > 0 ? `
+            <div class="ptotal-item">
+                <div class="ptotal-value">${fmtUsdt(totalUsdt)}</div>
+                <div class="ptotal-label">Total USDT</div>
             </div>
             <div class="ptotal-divider"></div>` : ''}
             <div class="ptotal-item">
@@ -760,10 +871,11 @@ function renderAfterPortfolio(data) {
 
     // ── Sub-accounts list with deltas ─────────────────────
     const rows = subEntries.map(w => {
-        const short  = w.address.slice(0,6) + '...' + w.address.slice(-4);
-        const color  = getWalletColor(w.address);
-        const pct    = total > 0 ? (w.post / total * 100).toFixed(1) : '0';
-        const delta  = w.delta;
+        const short      = w.address.slice(0,6) + '...' + w.address.slice(-4);
+        const color      = getWalletColor(w.address);
+        const pct        = total > 0 ? (w.post / total * 100).toFixed(1) : '0';
+        const delta      = w.delta;
+        const usdtDelta  = w.usdt_delta || 0;
 
         let pillClass, pillText;
         if (delta > 0) {
@@ -777,6 +889,13 @@ function renderAfterPortfolio(data) {
             pillText  = 'no change';
         }
 
+        let usdtPillHtml = '';
+        if (usdtDelta > 0) {
+            usdtPillHtml = `<span class="delta-pill up">↑ +${usdtDelta.toFixed(2)} USDT</span>`;
+        } else if (usdtDelta < 0) {
+            usdtPillHtml = `<span class="delta-pill down">↓ ${usdtDelta.toFixed(2)} USDT</span>`;
+        }
+
         return `
             <div class="account-row" data-address="${w.address}">
                 <div class="account-dot"
@@ -786,6 +905,7 @@ function renderAfterPortfolio(data) {
                     <div class="account-after-bal">
                         <span class="account-balance">${w.post.toFixed(4)} ETH</span>
                         <span class="delta-pill ${pillClass}">${pillText}</span>
+                        ${usdtPillHtml}
                     </div>
                     ${usdSpan(w.post)}
                 </div>
@@ -990,11 +1110,20 @@ function _renderPDF() {
     const subs       = loadedWallets.filter(w => w.role === 'sub');
     const total      = loadedWallets.reduce((s, w) => s + (!w.error ? (w.balance || 0) : 0), 0);
 
-    const { transfers = [], summary = [], feasible = false, shortfall = 0 } = lastPoolResult;
-    const masterAfter = summary.find(w => w.role === 'master');
-    const subsAfter   = summary.filter(w => w.role === 'sub');
-    const totalAfter  = summary.reduce((s, w) => s + w.post, 0);
-    const totalMoved  = transfers.reduce((s, t) => s + t.amount, 0);
+    const {
+        transfers = [], summary = [],
+        eth_feasible = false, eth_shortfall = 0,
+        usdt_feasible = false, usdt_shortfall = 0,
+    } = lastPoolResult;
+    const feasible   = eth_feasible;
+    const shortfall  = eth_shortfall;
+    const masterAfter  = summary.find(w => w.role === 'master');
+    const subsAfter    = summary.filter(w => w.role === 'sub');
+    const totalAfter   = summary.reduce((s, w) => s + w.post, 0);
+    const ethXfers     = transfers.filter(t => !t.token || t.token === 'ETH');
+    const usdtXfers    = transfers.filter(t => t.token === 'USDT');
+    const totalMoved   = ethXfers.reduce((s, t) => s + t.amount, 0);
+    const totalUsdtMoved = usdtXfers.reduce((s, t) => s + t.amount, 0);
 
     const now  = new Date();
     const pad  = n => String(n).padStart(2, '0');
@@ -1028,10 +1157,10 @@ function _renderPDF() {
     y += 6;
 
     miniStats([
-        { label: 'Total Portfolio',  val: `${total.toFixed(4)} ETH` },
-        { label: 'Wallets',          val: loadedWallets.length       },
-        { label: 'Transfers',        val: transfers.length           },
-        { label: 'ETH Moved',        val: totalMoved.toFixed(4)      },
+        { label: 'Total ETH',    val: `${total.toFixed(4)} ETH`  },
+        { label: 'Wallets',      val: loadedWallets.length        },
+        { label: 'Transfers',    val: transfers.length            },
+        { label: 'ETH Moved',    val: totalMoved.toFixed(4)       },
     ]);
     y += 4;
 
@@ -1101,43 +1230,65 @@ function _renderPDF() {
     needSpace(30);
     sectionBar('03', 'Transfer Plan');
 
-    if (!feasible) {
-        needSpace(14);
-        doc.setFillColor(...C.rDim);
-        doc.setDrawColor(...C.red);
-        doc.setLineWidth(0.3);
-        doc.roundedRect(M, y, CW, 10, 1.5, 1.5, 'FD');
-        doc.setFontSize(9);
-        doc.setFont('helvetica', 'bold');
-        doc.setTextColor(...C.red);
-        doc.text(`Insufficient funds — Shortfall: ${shortfall.toFixed(4)} ETH`, M + 4, y + 7);
-        y += 16;
-    } else if (transfers.length === 0) {
+    if (!eth_feasible || !usdt_feasible) {
+        needSpace(10);
+        if (!eth_feasible) {
+            doc.setFillColor(...C.rDim);
+            doc.setDrawColor(...C.red);
+            doc.setLineWidth(0.3);
+            doc.roundedRect(M, y, CW, 9, 1.5, 1.5, 'FD');
+            doc.setFontSize(8.5); doc.setFont('helvetica', 'bold'); doc.setTextColor(...C.red);
+            doc.text(`ETH — Insufficient funds. Shortfall: ${eth_shortfall.toFixed(4)} ETH`, M + 4, y + 6.2);
+            y += 13;
+        }
+        if (!usdt_feasible) {
+            doc.setFillColor(...C.rDim);
+            doc.setDrawColor(...C.red);
+            doc.setLineWidth(0.3);
+            doc.roundedRect(M, y, CW, 9, 1.5, 1.5, 'FD');
+            doc.setFontSize(8.5); doc.setFont('helvetica', 'bold'); doc.setTextColor(...C.red);
+            doc.text(`USDT — Insufficient funds. Shortfall: $${usdt_shortfall.toFixed(2)}`, M + 4, y + 6.2);
+            y += 13;
+        }
+    }
+    if (transfers.length === 0) {
         needSpace(12);
-        doc.setFontSize(9);
-        doc.setFont('helvetica', 'italic');
-        doc.setTextColor(...C.sub);
-        doc.text('All wallets are already at target. No transfers required.', M, y + 6);
+        doc.setFontSize(9); doc.setFont('helvetica', 'italic'); doc.setTextColor(...C.sub);
+        doc.text('No transfers required.', M, y + 6);
         y += 12;
     } else {
         const affected = new Set([...transfers.map(t => t.from), ...transfers.map(t => t.to)]);
         miniStats([
-            { label: 'Total Transfers',   val: transfers.length        },
-            { label: 'ETH Moved',         val: totalMoved.toFixed(4)   },
-            { label: 'Wallets Affected',  val: affected.size           },
+            { label: 'Transfers',     val: transfers.length                                          },
+            { label: 'ETH Moved',     val: totalMoved.toFixed(4)                                     },
+            { label: 'USDT Moved',    val: totalUsdtMoved > 0 ? '$' + totalUsdtMoved.toFixed(2) : '—' },
+            { label: 'Wallets',       val: affected.size                                             },
         ]);
         const typeLabel = { sub_to_sub: 'Sub → Sub', sub_to_master: 'Sub → Master', master_to_sub: 'Master → Sub' };
         tbl(
-            ['#', 'Type', 'From', 'To', 'Amount (ETH)'],
-            transfers.map((t, i) => [String(i + 1), typeLabel[t.type] || t.type, shorten(t.from), shorten(t.to), t.amount.toFixed(6)]),
+            ['#', 'Type', 'Token', 'From', 'To', 'Amount'],
+            transfers.map((t, i) => [
+                String(i + 1),
+                typeLabel[t.type] || t.type,
+                t.token || 'ETH',
+                shorten(t.from),
+                shorten(t.to),
+                t.amount.toFixed(6) + ' ' + (t.token || 'ETH'),
+            ]),
             {
                 0: { cellWidth: 10, halign: 'center' },
-                1: { cellWidth: 34 },
-                2: { font: 'courier', fontSize: 8, cellWidth: 40 },
-                3: { font: 'courier', fontSize: 8, cellWidth: 40 },
-                4: { halign: 'right', fontStyle: 'bold' },
+                1: { cellWidth: 30 },
+                2: { cellWidth: 12, halign: 'center' },
+                3: { font: 'courier', fontSize: 8, cellWidth: 36 },
+                4: { font: 'courier', fontSize: 8, cellWidth: 36 },
+                5: { halign: 'right', fontStyle: 'bold' },
             },
-            null
+            d => {
+                if (d.section === 'body' && d.column.index === 2) {
+                    d.cell.styles.textColor = d.cell.raw === 'USDT' ? [...C.green] : [...C.primary];
+                    d.cell.styles.fontStyle = 'bold';
+                }
+            }
         );
     }
 
@@ -1145,7 +1296,7 @@ function _renderPDF() {
     // 04 — PORTFOLIO AFTER
     // ══════════════════════════════════════════════════════
 
-    if (feasible && summary.length > 0) {
+    if (summary.length > 0) {
         needSpace(32);
         sectionBar('04', 'Projected Portfolio After Transfer');
 
@@ -1159,13 +1310,21 @@ function _renderPDF() {
             y += 4;
 
             tbl(
-                ['Address', 'Balance (ETH)', 'Net Change (ETH)', '% of Portfolio'],
+                ['Address', 'ETH After', 'ETH Change', 'USDT Change', '% of Portfolio'],
                 subsAfter.map(w => {
-                    const d    = w.delta;
-                    const dStr = d === 0 ? 'No change' : `${d > 0 ? '+' : ''}${d.toFixed(6)}`;
-                    return [shorten(w.address), w.post.toFixed(6), dStr, totalAfter > 0 ? (w.post / totalAfter * 100).toFixed(2) + '%' : '—'];
+                    const d     = w.delta;
+                    const dStr  = d === 0 ? 'No change' : `${d > 0 ? '+' : ''}${d.toFixed(6)}`;
+                    const ud    = w.usdt_delta || 0;
+                    const udStr = ud === 0 ? '—' : `${ud > 0 ? '+' : ''}$${ud.toFixed(2)}`;
+                    return [
+                        shorten(w.address),
+                        w.post.toFixed(6),
+                        dStr,
+                        udStr,
+                        totalAfter > 0 ? (w.post / totalAfter * 100).toFixed(2) + '%' : '—',
+                    ];
                 }),
-                { 0: { font: 'courier', fontSize: 8, cellWidth: 55 }, 1: { halign: 'right' }, 2: { halign: 'right' }, 3: { halign: 'right' } },
+                { 0: { font: 'courier', fontSize: 8, cellWidth: 50 }, 1: { halign: 'right' }, 2: { halign: 'right' }, 3: { halign: 'right' }, 4: { halign: 'right' } },
                 d => {
                     if (d.section === 'body' && d.column.index === 2) {
                         const v = d.cell.raw;
@@ -1173,6 +1332,11 @@ function _renderPDF() {
                         d.cell.styles.textColor = v.startsWith('+') ? [...C.green] : v.startsWith('-') ? [...C.red] : [...C.sub];
                     }
                     if (d.section === 'body' && d.column.index === 3) {
+                        const v = d.cell.raw;
+                        d.cell.styles.fontStyle = 'bold';
+                        d.cell.styles.textColor = v.startsWith('+') ? [...C.green] : v.startsWith('-') ? [...C.red] : [...C.sub];
+                    }
+                    if (d.section === 'body' && d.column.index === 4) {
                         d.cell.styles.textColor = [...C.primary];
                         d.cell.styles.fontStyle = 'bold';
                     }
@@ -1277,10 +1441,11 @@ function copyPlan() {
     const lines = ['CryptoTreasury — Transfer Plan', ''];
     rows.forEach(row => {
         const cells = row.querySelectorAll('td');
+        // cols: # | Type | Token | From | To | Amount
         lines.push(
-            `${cells[0].textContent}. ${cells[1].textContent}  ` +
-            `${cells[2].textContent} -> ${cells[3].textContent}  ` +
-            `${cells[4].textContent}`
+            `${cells[0].textContent}. [${cells[2].textContent.trim()}] ${cells[1].textContent.trim()}  ` +
+            `${cells[3].textContent} -> ${cells[4].textContent}  ` +
+            `${cells[5].textContent}`
         );
     });
     navigator.clipboard.writeText(lines.join('\n')).then(() => {
