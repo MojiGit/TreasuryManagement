@@ -17,6 +17,37 @@ const CHART_COLORS = [
 // Master wallet — neutral slate tint
 const MASTER_CHART_COLOR = '#94A3B8';
 
+// ── ETH / USD Price ───────────────────────────────────────
+let ethUsdPrice = null;
+
+async function fetchEthPrice() {
+    try {
+        const res  = await fetch(
+            'https://api.coingecko.com/api/v3/simple/price?ids=ethereum&vs_currencies=usd',
+            { signal: AbortSignal.timeout(8000) }
+        );
+        const json = await res.json();
+        ethUsdPrice = json?.ethereum?.usd ?? null;
+    } catch {
+        ethUsdPrice = null;
+    }
+}
+
+// Format ETH amount as USD string; returns null when price unavailable.
+function fmtUsd(eth) {
+    if (!ethUsdPrice || eth == null) return null;
+    const usd = eth * ethUsdPrice;
+    if (usd >= 1e9) return '$' + (usd / 1e9).toFixed(2) + 'B';
+    if (usd >= 1e6) return '$' + (usd / 1e6).toFixed(2) + 'M';
+    return '$' + usd.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+}
+
+// Returns a <span class="val-usd"> or empty string when price unavailable.
+function usdSpan(eth) {
+    const v = fmtUsd(eth);
+    return v ? `<span class="val-usd">${v}</span>` : '';
+}
+
 // ── Step Progress ─────────────────────────────────────────
 function setStep(active) {
     for (let i = 1; i <= 5; i++) {
@@ -154,11 +185,14 @@ async function loadPortfolio() {
     setLoading(loadBtn, true);
 
     try {
-        const response = await fetch('/api/load', {
-            method:  'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body:    JSON.stringify({ wallets })
-        });
+        const [response] = await Promise.all([
+            fetch('/api/load', {
+                method:  'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body:    JSON.stringify({ wallets })
+            }),
+            fetchEthPrice(),
+        ]);
         const data = await response.json();
         if (!response.ok) { errorEl.textContent = 'Server error. Please try again.'; return; }
 
@@ -316,12 +350,14 @@ function displayPortfolio(data) {
     const masterPct   = total > 0 && !master.error
         ? (master.balance / total * 100).toFixed(1) : '0';
     const masterBal   = master.error ? 'Error' : master.balance.toFixed(4);
+    const totalUsd    = fmtUsd(total);
 
     document.getElementById('master-overview').innerHTML = `
         <div class="master-left">
             <span class="master-badge">Master Wallet</span>
             <div class="master-addr">${masterShort}</div>
             <div class="master-balance">${masterBal} <span class="master-unit">ETH</span></div>
+            ${master.error ? '' : usdSpan(master.balance)}
             <div class="master-share">${masterPct}% of total portfolio</div>
         </div>
         <div class="portfolio-totals">
@@ -330,6 +366,12 @@ function displayPortfolio(data) {
                 <div class="ptotal-label">Total ETH</div>
             </div>
             <div class="ptotal-divider"></div>
+            ${totalUsd ? `
+            <div class="ptotal-item">
+                <div class="ptotal-value">${totalUsd}</div>
+                <div class="ptotal-label">Total USD</div>
+            </div>
+            <div class="ptotal-divider"></div>` : ''}
             <div class="ptotal-item">
                 <div class="ptotal-value">${data.wallets.length}</div>
                 <div class="ptotal-label">Wallets</div>
@@ -354,14 +396,15 @@ function displayPortfolio(data) {
             ${subs.map(w => {
                 const short   = w.address.slice(0,6) + '...' + w.address.slice(-4);
                 const pct     = total > 0 && !w.error ? (w.balance / total * 100).toFixed(1) : '0';
-                const balance = w.error ? 'Error' : w.balance.toFixed(4) + ' ETH';
+                const balEth  = w.error ? 'Error' : w.balance.toFixed(4) + ' ETH';
                 return `
                     <div class="account-row" data-address="${w.address}">
                         <div class="account-dot"
                             style="background:${w._color};box-shadow:0 0 6px ${w._color}80;"></div>
                         <div class="account-info">
                             <div class="account-addr">${short}</div>
-                            <div class="account-balance">${balance}</div>
+                            <div class="account-balance">${balEth}</div>
+                            ${w.error ? '' : usdSpan(w.balance)}
                         </div>
                         <div class="account-pct" style="color:${w._color}">${pct}%</div>
                     </div>`;
@@ -397,6 +440,11 @@ function buildPoolingSetup(wallets) {
         row.dataset.address = wallet.address;
         row.dataset.role    = wallet.role;
 
+        // Currency toggle only available when ETH price is loaded
+        const toggleBtn = ethUsdPrice
+            ? '<button class="currency-toggle" onclick="toggleTargetCurrency(this)" disabled>ETH</button>'
+            : '';
+
         if (isMaster) {
             row.innerHTML = `
                 <td class="cell-mono">${short}</td>
@@ -410,8 +458,15 @@ function buildPoolingSetup(wallets) {
                     </select>
                 </td>
                 <td>
-                    <input type="number" class="target-input master-target-input"
-                        placeholder="Min ETH" step="0.0001" min="0" disabled />
+                    <div class="target-field">
+                        <div class="target-input-row">
+                            <input type="number" class="target-input master-target-input"
+                                placeholder="Min ETH" step="0.0001" min="0" disabled
+                                data-currency="eth" oninput="updateConversionHint(this)" />
+                            ${toggleBtn}
+                        </div>
+                        <span class="conversion-hint"></span>
+                    </div>
                 </td>`;
         } else {
             row.innerHTML = `
@@ -425,8 +480,15 @@ function buildPoolingSetup(wallets) {
                     </select>
                 </td>
                 <td>
-                    <input type="number" class="target-input sub-target-input"
-                        placeholder="e.g. 1.0" step="0.0001" min="0" disabled />
+                    <div class="target-field">
+                        <div class="target-input-row">
+                            <input type="number" class="target-input sub-target-input"
+                                placeholder="e.g. 1.0" step="0.0001" min="0" disabled
+                                data-currency="eth" oninput="updateConversionHint(this)" />
+                            ${toggleBtn}
+                        </div>
+                        <span class="conversion-hint"></span>
+                    </div>
                 </td>`;
         }
         tbody.appendChild(row);
@@ -438,15 +500,72 @@ function buildPoolingSetup(wallets) {
 }
 
 function toggleTarget(select) {
-    const input = select.closest('tr').querySelector('.sub-target-input');
-    input.disabled = select.value !== 'target';
-    if (!input.disabled) { input.value = ''; input.focus(); } else input.value = '';
+    const row    = select.closest('tr');
+    const input  = row.querySelector('.sub-target-input');
+    const toggle = row.querySelector('.currency-toggle');
+    const hint   = row.querySelector('.conversion-hint');
+    const enable = select.value === 'target';
+
+    input.disabled = !enable;
+    if (toggle) toggle.disabled = !enable;
+    input.value = '';
+    if (hint) { hint.textContent = ''; hint.style.display = 'none'; }
+    if (enable) input.focus();
 }
 
 function toggleMasterTarget(select) {
-    const input = select.closest('tr').querySelector('.master-target-input');
-    input.disabled = select.value !== 'minimum';
-    if (!input.disabled) { input.value = ''; input.focus(); } else input.value = '';
+    const row    = select.closest('tr');
+    const input  = row.querySelector('.master-target-input');
+    const toggle = row.querySelector('.currency-toggle');
+    const hint   = row.querySelector('.conversion-hint');
+    const enable = select.value === 'minimum';
+
+    input.disabled = !enable;
+    if (toggle) toggle.disabled = !enable;
+    input.value = '';
+    if (hint) { hint.textContent = ''; hint.style.display = 'none'; }
+    if (enable) input.focus();
+}
+
+// Switch a target input between ETH and USD entry modes
+function toggleTargetCurrency(btn) {
+    const input  = btn.previousElementSibling;
+    const hint   = btn.closest('.target-field').querySelector('.conversion-hint');
+    const toUsd  = input.dataset.currency !== 'usd';
+
+    input.dataset.currency = toUsd ? 'usd' : 'eth';
+    btn.textContent        = toUsd ? 'USD' : 'ETH';
+    btn.classList.toggle('active', toUsd);
+    input.placeholder      = toUsd
+        ? 'e.g. 1,000'
+        : (input.classList.contains('master-target-input') ? 'Min ETH' : 'e.g. 1.0');
+    input.step             = toUsd ? '1' : '0.0001';
+    input.value            = '';
+    if (hint) { hint.textContent = ''; hint.style.display = 'none'; }
+    input.focus();
+}
+
+// Show live ETH↔USD conversion hint below the target input
+function updateConversionHint(input) {
+    const field = input.closest('.target-field');
+    if (!field || !ethUsdPrice) return;
+    const hint = field.querySelector('.conversion-hint');
+    if (!hint) return;
+
+    const val = parseFloat(input.value);
+    if (!val || val <= 0) {
+        hint.textContent  = '';
+        hint.style.display = 'none';
+        return;
+    }
+
+    if (input.dataset.currency === 'usd') {
+        hint.textContent = '≈ ' + (val / ethUsdPrice).toFixed(4) + ' ETH';
+    } else {
+        const usd = val * ethUsdPrice;
+        hint.textContent = '≈ $' + usd.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+    }
+    hint.style.display = 'block';
 }
 
 // ── Step 4: Pool ──────────────────────────────────────────
@@ -462,14 +581,24 @@ async function runPool() {
         const address = row.dataset.address;
         const role    = row.dataset.role;
         if (role === 'master') {
-            const mode   = row.querySelector('.master-mode-select').value;
-            const target = mode === 'minimum'
-                ? parseFloat(row.querySelector('.master-target-input').value) || 0 : 0;
+            const mode = row.querySelector('.master-mode-select').value;
+            let target = 0;
+            if (mode === 'minimum') {
+                const inp = row.querySelector('.master-target-input');
+                const raw = parseFloat(inp.value) || 0;
+                target    = inp.dataset.currency === 'usd' && ethUsdPrice
+                    ? raw / ethUsdPrice : raw;
+            }
             wallets.push({ address, role, mode: null, target });
         } else {
-            const mode   = row.querySelector('.mode-select').value;
-            const target = mode === 'target'
-                ? parseFloat(row.querySelector('.sub-target-input').value) || 0 : 0;
+            const mode = row.querySelector('.mode-select').value;
+            let target = 0;
+            if (mode === 'target') {
+                const inp = row.querySelector('.sub-target-input');
+                const raw = parseFloat(inp.value) || 0;
+                target    = inp.dataset.currency === 'usd' && ethUsdPrice
+                    ? raw / ethUsdPrice : raw;
+            }
             wallets.push({ address, role, mode, target });
         }
     });
@@ -533,6 +662,7 @@ function displayResults(data) {
         <div class="stat-card">
             <div class="stat-card-value">${totalETH.toFixed(4)}</div>
             <div class="stat-card-label">ETH Moved</div>
+            ${usdSpan(totalETH)}
         </div>
         <div class="stat-card">
             <div class="stat-card-value">${affected}</div>
@@ -591,15 +721,17 @@ function renderAfterPortfolio(data) {
     const mPct      = total > 0 ? (masterEntry.post / total * 100).toFixed(1) : '0';
     const mDelta    = masterEntry.delta;
     const mDeltaColor = mDelta > 0 ? 'var(--green)' : mDelta < 0 ? 'var(--red)' : 'var(--text-3)';
-    const mDeltaStr = mDelta === 0
+    const mDeltaStr   = mDelta === 0
         ? 'No change'
         : `${mDelta > 0 ? '↑ +' : '↓ '}${mDelta.toFixed(4)} ETH`;
+    const afterTotalUsd = fmtUsd(total);
 
     document.getElementById('after-master-overview').innerHTML = `
         <div class="master-left">
             <span class="master-badge after-badge">Master Wallet</span>
             <div class="master-addr">${mShort}</div>
             <div class="master-balance">${masterEntry.post.toFixed(4)} <span class="master-unit">ETH</span></div>
+            ${usdSpan(masterEntry.post)}
             <div class="master-delta" style="color:${mDeltaColor}">${mDeltaStr}</div>
             <div class="master-share">${mPct}% of total portfolio</div>
         </div>
@@ -609,6 +741,12 @@ function renderAfterPortfolio(data) {
                 <div class="ptotal-label">Total ETH</div>
             </div>
             <div class="ptotal-divider"></div>
+            ${afterTotalUsd ? `
+            <div class="ptotal-item">
+                <div class="ptotal-value">${afterTotalUsd}</div>
+                <div class="ptotal-label">Total USD</div>
+            </div>
+            <div class="ptotal-divider"></div>` : ''}
             <div class="ptotal-item">
                 <div class="ptotal-value">${data.summary.length}</div>
                 <div class="ptotal-label">Wallets</div>
@@ -649,6 +787,7 @@ function renderAfterPortfolio(data) {
                         <span class="account-balance">${w.post.toFixed(4)} ETH</span>
                         <span class="delta-pill ${pillClass}">${pillText}</span>
                     </div>
+                    ${usdSpan(w.post)}
                 </div>
                 <div class="account-pct" style="color:${color}">${pct}%</div>
             </div>`;

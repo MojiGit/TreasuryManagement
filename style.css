@@ -1,8 +1,8 @@
 /* ═══ Design Tokens ══════════════════════════════════════════════ */
 :root {
   /* Brand palette — slightly desaturated primary for professional feel */
-  --primary:        #5E11C8;
-  --primary-hover:  #6D22D8;
+  --primary:        #914D76;
+  --primary-hover:  #914d76d8;
   --primary-dim:    rgba(93, 17, 200, 0.151);
   --primary-glow:   rgba(94, 17, 200, 0.10);
 
@@ -15,11 +15,11 @@
   --secondary:      #D8DDEF;
 
   /* Surfaces — light neutral base */
-  --bg:             #6d22d81c;
+  --bg:             #EFF1F8;
   --surface:        #ffffff;
   --surface-2:      #EFF1F8;
   --surface-3:      #D8DDEF;
-  --input-bg:       #FFFFFF;
+  --input-bg:       #ffffff;
 
   /* Borders */
   --border:         rgba(26, 22, 48, 0.07);
@@ -698,12 +698,6 @@ body {
   gap: 0;
 }
 
-.chart-wrap {
-  position: relative;
-  width: 200px;
-  height: 200px;
-  flex-shrink: 0;
-}
 
 #portfolio-chart {
   width: 200px;
@@ -796,8 +790,6 @@ body {
 .role-master { background: var(--primary-dim);  color: var(--purple-light); }
 .role-sub    { background: var(--surface-3);     color: var(--text-2); }
 
-.status-ok  { color: var(--green);  font-weight: 600; font-size: 12px; }
-.status-err { color: var(--red);    font-weight: 600; font-size: 12px; }
 
 /* ═══ Mode Select & Target Input ════════════════════════════════ */
 .mode-select {
@@ -897,10 +889,6 @@ body {
 .type-sub-master { background: var(--amber-dim);   color: var(--amber); }
 .type-master-sub { background: var(--green-dim);   color: var(--green); }
 
-/* ═══ Delta ══════════════════════════════════════════════════════ */
-.delta-pos  { color: var(--accent);  font-weight: 700; font-family: var(--font-mono); }
-.delta-neg  { color: var(--red);     font-weight: 700; font-family: var(--font-mono); }
-.delta-zero { color: var(--text-3);  font-family: var(--font-mono); }
 
 /* ═══ Empty State ════════════════════════════════════════════════ */
 .empty-row td {
@@ -924,42 +912,6 @@ body {
   font-size: 12px;
   color: var(--text-2);
   background: var(--surface);
-}
-
-/* ═══ After-Transfer Portfolio Section ══════════════════════════ */
-.after-portfolio-wrap {
-  margin-top: 32px;
-  padding-top: 28px;
-  border-top: 1px solid var(--border-2);
-}
-
-.after-section-header {
-  display: flex;
-  align-items: center;
-  gap: 14px;
-  margin-bottom: 20px;
-  flex-wrap: wrap;
-}
-
-.after-section-tag {
-  display: inline-flex;
-  align-items: center;
-  padding: 4px 12px;
-  border-radius: 20px;
-  font-size: 11px;
-  font-weight: 700;
-  letter-spacing: 0.08em;
-  text-transform: uppercase;
-  background: var(--accent-dim);
-  color: var(--accent-hover);
-  border: 1px solid rgba(5, 150, 105, 0.18);
-  flex-shrink: 0;
-}
-
-.after-section-desc {
-  font-size: 13px;
-  color: var(--text-2);
-  line-height: 1.4;
 }
 
 /* After-view master card: accent-tinted border */
@@ -1005,248 +957,71 @@ body {
 .delta-pill.down { background: var(--red-dim);   color: var(--red);   }
 .delta-pill.flat { color: var(--text-3); }
 
-/* ═══ Topbar — Auth Area ═════════════════════════════════════════ */
-.topbar-auth {
-  display: flex;
-  align-items: center;
-  gap: 10px;
-  margin-left: auto;
-}
 
-.topbar-email,
-.auth-email {
-  font-size: 12.5px;
-  color: var(--text-2);
-  font-family: var(--font-mono);
-  letter-spacing: 0.01em;
-  max-width: 180px;
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
-}
+/* ═══ Target Field — ETH/USD toggle ═════════════════════════════ */
+.target-field { display: flex; flex-direction: column; gap: 3px; }
 
-.btn-ghost {
-  background: none;
+.target-input-row { display: flex; align-items: center; gap: 5px; }
+
+.target-input-row .target-input { width: auto; flex: 1; min-width: 72px; }
+
+.currency-toggle {
+  flex-shrink: 0;
+  height: 32px;
+  padding: 0 9px;
   border: 1.5px solid var(--border-2);
-  border-radius: var(--btn-r);
+  border-radius: 6px;
+  background: var(--surface-2);
   color: var(--text-2);
-  font-size: 13px;
-  font-weight: 600;
-  padding: 6px 14px;
+  font-size: 10.5px;
+  font-weight: 700;
+  letter-spacing: 0.06em;
   cursor: pointer;
-  transition: border-color var(--t), color var(--t), background var(--t);
+  transition: border-color var(--t), background var(--t), color var(--t);
 }
 
-.btn-ghost:hover {
+.currency-toggle:hover:not(:disabled) {
   border-color: var(--primary);
   color: var(--primary);
   background: var(--primary-dim);
 }
 
-.btn-ghost-sm {
-  background: none;
-  border: none;
-  color: var(--text-2);
-  font-size: 12px;
-  padding: 4px 8px;
-  cursor: pointer;
-  border-radius: 6px;
-  transition: color var(--t), background var(--t);
-}
-
-.btn-ghost-sm:hover { color: var(--text); background: var(--surface-2); }
-
-.btn-accent-sm {
+.currency-toggle.active {
   background: var(--primary);
+  border-color: var(--primary);
   color: white;
-  border: none;
-  border-radius: 6px;
-  font-size: 12.5px;
-  font-weight: 700;
-  padding: 6px 14px;
-  cursor: pointer;
-  transition: background var(--t), box-shadow var(--t);
 }
 
-.btn-accent-sm:hover {
-  background: var(--primary-hover);
-  box-shadow: 0 2px 10px var(--primary-glow);
+.currency-toggle:disabled { opacity: 0.35; cursor: not-allowed; }
+
+.conversion-hint {
+  display: none;
+  font-family: var(--font-mono);
+  font-size: 11px;
+  color: var(--text-3);
+  padding-left: 1px;
+  letter-spacing: 0.01em;
 }
 
-/* ═══ Saved-Config Banner ════════════════════════════════════════ */
-.saved-config-banner {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: 16px;
-  padding: 14px 20px;
-  background: var(--surface);
-  border: 1px solid rgba(94, 17, 200, 0.14);
-  border-radius: var(--card-r);
-  box-shadow: var(--shadow-sm);
-  flex-wrap: wrap;
-}
-
-.scb-left {
-  display: flex;
-  align-items: center;
-  gap: 12px;
-}
-
-.scb-icon { font-size: 18px; flex-shrink: 0; }
-
-.scb-title {
-  font-size: 13.5px;
-  font-weight: 700;
-  color: var(--text);
-  line-height: 1.3;
-}
-
-.scb-desc {
-  font-size: 12px;
-  color: var(--text-2);
+/* ═══ USD Values ═════════════════════════════════════════════════ */
+.val-usd {
+  display: block;
+  font-family: var(--font-mono);
+  font-size: 11px;
+  color: var(--text-3);
+  letter-spacing: 0.01em;
   margin-top: 1px;
 }
 
-.scb-actions {
-  display: flex;
-  align-items: center;
-  gap: 8px;
-  flex-shrink: 0;
+/* When inside a flex-row container (account-after-bal), render inline */
+.account-after-bal .val-usd,
+.account-balance + .val-usd {
+  display: inline;
+  margin-left: 5px;
 }
 
-/* ═══ Account Prompt (inside portfolio card) ════════════════════ */
-.account-prompt {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: 12px;
-  padding: 12px 28px;
-  border-top: 1px solid var(--border);
-  background: var(--surface-2);
-}
-
-.ap-text {
-  font-size: 13px;
-  color: var(--text-2);
-}
-
-.ap-link {
-  background: none;
-  border: none;
-  color: var(--primary);
-  font-size: 13px;
-  font-weight: 600;
-  cursor: pointer;
-  padding: 0;
-  text-decoration: underline;
-  text-underline-offset: 3px;
-  transition: opacity var(--t);
-}
-
-.ap-link:hover { opacity: 0.8; }
-
-.ap-dismiss {
-  background: none;
-  border: none;
-  color: var(--text-3);
-  font-size: 14px;
-  cursor: pointer;
-  padding: 4px;
-  flex-shrink: 0;
-  transition: color var(--t);
-}
-
-.ap-dismiss:hover { color: var(--text-2); }
-
-/* ═══ Auth Modal ═════════════════════════════════════════════════ */
-.modal-overlay {
-  position: fixed;
-  inset: 0;
-  background: rgba(26, 22, 48, 0.55);
-  backdrop-filter: blur(4px);
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  z-index: 1000;
-  padding: 16px;
-}
-
-.modal-card {
-  background: var(--surface);
-  border: 1px solid var(--border-2);
-  border-radius: 16px;
-  box-shadow: 0 16px 48px rgba(26, 22, 48, 0.16), 0 0 0 1px rgba(94, 17, 200, 0.07);
-  width: 100%;
-  max-width: 380px;
-  padding: 28px;
-  position: relative;
-}
-
-.modal-close {
-  position: absolute;
-  top: 16px;
-  right: 16px;
-  background: none;
-  border: none;
-  color: var(--text-2);
-  font-size: 15px;
-  cursor: pointer;
-  width: 28px;
-  height: 28px;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  border-radius: 6px;
-  transition: color var(--t), background var(--t);
-}
-
-.modal-close:hover { color: var(--text); background: var(--surface-2); border-radius: 6px; }
-
-.modal-header {
-  display: flex;
-  align-items: center;
-  gap: 10px;
-  margin-bottom: 22px;
-}
-
-.modal-title {
-  font-size: 15px;
-  font-weight: 700;
-  color: var(--text);
-  letter-spacing: -0.02em;
-}
-
-.modal-tabs {
-  display: flex;
-  gap: 0;
-  border-bottom: 1px solid var(--border-2);
-  margin-bottom: 20px;
-}
-
-.modal-tab {
-  background: none;
-  border: none;
-  border-bottom: 2px solid transparent;
-  color: var(--text-2);
-  font-size: 13.5px;
-  font-weight: 600;
-  padding: 8px 16px 10px;
-  cursor: pointer;
-  margin-bottom: -1px;
-  transition: color var(--t), border-color var(--t);
-}
-
-.modal-tab:hover { color: var(--text); }
-
-.modal-tab.active {
-  color: var(--primary);
-  border-bottom-color: var(--primary);
-}
-
-.modal-form { display: flex; flex-direction: column; gap: 14px; }
-
-.mfield { display: flex; flex-direction: column; gap: 5px; }
+/* In stat cards, sit below the label */
+.stat-card .val-usd { margin-top: 4px; }
 
 /* ═══ Utilities ══════════════════════════════════════════════════ */
 .hidden { display: none !important; }
