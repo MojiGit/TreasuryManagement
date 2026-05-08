@@ -66,10 +66,13 @@ async def get_balances(wallets: list) -> list:
             ) as resp:
                 eth_data = await resp.json()
 
-            # USDT — one concurrent request per wallet
-            usdt_bals = await asyncio.gather(
-                *[_fetch_usdt_balance(session, addr) for addr in addresses]
-            )
+            # USDT — sequential requests to avoid Etherscan rate-limit errors.
+            # Concurrent calls hit the free-tier burst limit; only the first
+            # succeeds and the rest return 0.  Sequential calls stay well within
+            # the 5 req/s allowance.
+            usdt_bals = []
+            for addr in addresses:
+                usdt_bals.append(await _fetch_usdt_balance(session, addr))
 
         usdt_map = dict(zip(addresses, usdt_bals))
 
