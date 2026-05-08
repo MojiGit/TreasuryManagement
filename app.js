@@ -17,7 +17,12 @@ const CHART_COLORS = [
 // Master wallet — neutral slate
 const MASTER_CHART_COLOR = '#94A3B8';
 
-// ── ETH / USD Price ───────────────────────────────────────
+// ── Pricing & Metrics ─────────────────────────────────────
+//
+// USDT is pegged 1:1 to USD. The rate is explicit here so that
+// any future token additions are immediately obvious by contrast.
+const USDT_USD_RATE = 1.0;
+
 let ethUsdPrice = null;
 
 async function fetchEthPrice() {
@@ -33,27 +38,73 @@ async function fetchEthPrice() {
     }
 }
 
-// Format ETH amount as USD string; returns null when price unavailable.
-function fmtUsd(eth) {
-    if (!ethUsdPrice || eth == null) return null;
-    const usd = eth * ethUsdPrice;
-    if (usd >= 1e9) return '$' + (usd / 1e9).toFixed(2) + 'B';
-    if (usd >= 1e6) return '$' + (usd / 1e6).toFixed(2) + 'M';
+// ── Rounding utilities ────────────────────────────────────
+// Use these instead of ad-hoc .toFixed() when storing numeric values.
+const r2 = v => Math.round(v * 100)   / 100;   // 2 d.p. — USD / USDT
+const r4 = v => Math.round(v * 10000) / 10000; // 4 d.p. — ETH
+
+// ── Per-wallet USD metrics ────────────────────────────────
+// Returns { eth_usd, usdt_usd, total_usd } for one wallet.
+// eth_usd and total_usd are null when ethUsdPrice is unavailable.
+// Safe to call on errored wallets (all fields null).
+function walletMetrics(w) {
+    if (w.error) return { eth_usd: null, usdt_usd: null, total_usd: null };
+    const eth_usd   = ethToUsd(w.balance);
+    const usdt_usd  = r2((w.usdt_balance ?? 0) * USDT_USD_RATE);
+    const total_usd = eth_usd != null ? r2(eth_usd + usdt_usd) : null;
+    return { eth_usd, usdt_usd, total_usd };
+}
+
+// ── Portfolio-level aggregates ────────────────────────────
+// Accepts either raw wallet objects (from /api/load) or summary
+// entries (from /api/pool), unified via the `balanceKey` parameter.
+// Default balanceKey = "balance" covers both cases; pass "post" for
+// after-transfer summaries.
+function portfolioMetrics(wallets, balanceKey = 'balance') {
+    const ok          = wallets.filter(w => !w.error);
+    const totalEth    = r4(ok.reduce((s, w) => s + (w[balanceKey] ?? 0), 0));
+    const totalUsdt   = r2(ok.reduce((s, w) => s + (w.usdt_balance ?? w.usdt_post ?? 0), 0));
+    const totalEthUsd = ethToUsd(totalEth);
+    const totalUsdtUsd = r2(totalUsdt * USDT_USD_RATE);
+    const totalUsd    = totalEthUsd != null ? r2(totalEthUsd + totalUsdtUsd) : null;
+    return { totalEth, totalUsdt, totalEthUsd, totalUsdtUsd, totalUsd };
+}
+
+// ── Formatting helpers ────────────────────────────────────
+// All return null (not '') when a value is unavailable or zero-suppressed,
+// so callers can use a consistent falsy check: if (v) { ... }
+
+// Format a USD amount (from any source). Returns null for null input.
+function fmtDollars(usd) {
+    if (usd == null) return null;
+    if (usd >= 1e9)  return '$' + (usd / 1e9).toFixed(2) + 'B';
+    if (usd >= 1e6)  return '$' + (usd / 1e6).toFixed(2) + 'M';
     return '$' + usd.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
 }
 
-// Returns a <span class="val-usd"> or empty string when price unavailable.
+// Convert an ETH amount to its USD value (number). Returns null when unavailable.
+// Use this for arithmetic; use fmtUsd() for display.
+function ethToUsd(eth) {
+    return (ethUsdPrice != null && eth != null) ? r2(eth * ethUsdPrice) : null;
+}
+
+// Convert ETH → USD string. Returns null when price is unavailable.
+function fmtUsd(eth) {
+    const v = ethToUsd(eth);
+    return v != null ? fmtDollars(v) : null;
+}
+
+// Format USDT as a USD string. Returns null for null input, null for 0
+// (consistent with fmtUsd so callers use the same falsy check).
+function fmtUsdt(val) {
+    if (val == null || val === 0) return null;
+    return fmtDollars(r2(val * USDT_USD_RATE));
+}
+
+// Returns a <span class="val-usd"> or '' when value is null/unavailable.
 function usdSpan(eth) {
     const v = fmtUsd(eth);
     return v ? `<span class="val-usd">${v}</span>` : '';
-}
-
-// Format a USDT amount (already in USD). Always returns a string.
-function fmtUsdt(val) {
-    if (val == null) return null;
-    if (val >= 1e9) return '$' + (val / 1e9).toFixed(2) + 'B';
-    if (val >= 1e6) return '$' + (val / 1e6).toFixed(2) + 'M';
-    return '$' + val.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
 }
 
 // ── Step Progress ─────────────────────────────────────────
@@ -204,9 +255,11 @@ async function loadPortfolio() {
         const data = await response.json();
         if (!response.ok) { errorEl.textContent = 'Server error. Please try again.'; return; }
 
-        loadedWallets = data.wallets;
+        // Enrich each wallet with computed USD fields (eth_usd, usdt_usd, total_usd).
+        // ethUsdPrice is set by this point (fetched in parallel above).
+        loadedWallets = data.wallets.map(w => ({ ...w, ...walletMetrics(w) }));
         displayPortfolio(data);
-        buildPoolingSetup(data.wallets);
+        buildPoolingSetup(loadedWallets);
 
     } catch (err) {
         errorEl.textContent = 'Could not connect to server.';
@@ -346,52 +399,53 @@ function renderDonutChartTo(svgEl, wallets, total, containerId) {
 }
 
 function displayPortfolio(data) {
-    const total     = data.total_eth;
-    const totalUsdt = data.total_usdt || 0;
-    const master    = data.wallets.find(w => w.role === 'master');
-    const subs      = data.wallets.filter(w => w.role === 'sub');
+    // Use the globally-enriched loadedWallets (already have eth_usd, usdt_usd, total_usd).
+    // data.wallets are the raw API objects used only for counts/totals from the server.
+    const master = loadedWallets.find(w => w.role === 'master');
+    const subs   = loadedWallets.filter(w => w.role === 'sub');
 
-    // Assign chart colours to sub-wallets (index-stable)
+    // Assign chart colours to sub-wallets (index-stable, must run before rendering).
     subs.forEach((w, i) => { w._color = CHART_COLORS[i % CHART_COLORS.length]; });
 
-    // ── Master hero ───────────────────────────────────────
-    const masterShort  = master.address.slice(0,6) + '...' + master.address.slice(-4);
-    const masterPct    = total > 0 && !master.error
-        ? (master.balance / total * 100).toFixed(1) : '0';
-    const masterBal    = master.error ? 'Error' : master.balance.toFixed(4);
-    const masterUsdt   = !master.error && master.usdt_balance > 0
-        ? fmtUsdt(master.usdt_balance) : null;
-    const totalUsd     = fmtUsd(total);
+    // Portfolio-level aggregates — single source of truth.
+    const pm = portfolioMetrics(loadedWallets);
+
+    // Master panel values.
+    const masterShort = master.address.slice(0,6) + '...' + master.address.slice(-4);
+    const masterPct   = pm.totalEth > 0 && !master.error
+        ? (master.balance / pm.totalEth * 100).toFixed(1) : '0';
+    const masterBal   = master.error ? 'Error' : master.balance.toFixed(4);
+    const masterUsdtStr = fmtUsdt(master.usdt_balance);
 
     document.getElementById('master-overview').innerHTML = `
         <div class="master-left">
             <span class="master-badge">Master Wallet</span>
             <div class="master-addr">${masterShort}</div>
             <div class="master-balance">${masterBal} <span class="master-unit">ETH</span></div>
-            ${master.error ? '' : usdSpan(master.balance)}
-            ${masterUsdt ? `<div class="master-usdt-bal">${masterUsdt} USDT</div>` : ''}
+            ${master.eth_usd != null ? `<span class="val-usd">${fmtDollars(master.eth_usd)}</span>` : ''}
+            ${masterUsdtStr ? `<div class="master-usdt-bal">${masterUsdtStr} USDT</div>` : ''}
             <div class="master-share">${masterPct}% of ETH portfolio</div>
         </div>
         <div class="portfolio-totals">
             <div class="ptotal-item">
-                <div class="ptotal-value">${fmtEth(total)}</div>
+                <div class="ptotal-value">${fmtEth(pm.totalEth)}</div>
                 <div class="ptotal-label">Total ETH</div>
             </div>
             <div class="ptotal-divider"></div>
-            ${totalUsd ? `
+            ${pm.totalUsdt > 0 ? `
             <div class="ptotal-item">
-                <div class="ptotal-value">${totalUsd}</div>
-                <div class="ptotal-label">Total USD</div>
-            </div>
-            <div class="ptotal-divider"></div>` : ''}
-            ${totalUsdt > 0 ? `
-            <div class="ptotal-item">
-                <div class="ptotal-value">${fmtUsdt(totalUsdt)}</div>
+                <div class="ptotal-value">${fmtDollars(pm.totalUsdt)}</div>
                 <div class="ptotal-label">Total USDT</div>
             </div>
             <div class="ptotal-divider"></div>` : ''}
+            ${pm.totalUsd != null ? `
             <div class="ptotal-item">
-                <div class="ptotal-value">${data.wallets.length}</div>
+                <div class="ptotal-value">${fmtDollars(pm.totalUsd)}</div>
+                <div class="ptotal-label">Total USD</div>
+            </div>
+            <div class="ptotal-divider"></div>` : ''}
+            <div class="ptotal-item">
+                <div class="ptotal-value">${loadedWallets.length}</div>
                 <div class="ptotal-label">Wallets</div>
             </div>
             <div class="ptotal-divider"></div>
@@ -412,19 +466,20 @@ function displayPortfolio(data) {
                 Sub-Accounts <span class="accounts-count">${subs.length}</span>
             </div>
             ${subs.map(w => {
-                const short    = w.address.slice(0,6) + '...' + w.address.slice(-4);
-                const pct      = total > 0 && !w.error ? (w.balance / total * 100).toFixed(1) : '0';
-                const balEth   = w.error ? 'Error' : w.balance.toFixed(4) + ' ETH';
-                const usdtLine = !w.error && w.usdt_balance > 0
+                const short      = w.address.slice(0,6) + '...' + w.address.slice(-4);
+                const pct        = pm.totalEth > 0 && !w.error
+                    ? (w.balance / pm.totalEth * 100).toFixed(1) : '0';
+                const balEth     = w.error ? 'Error' : w.balance.toFixed(4) + ' ETH';
+                const ethUsdStr  = w.eth_usd != null ? `<span class="val-usd">${fmtDollars(w.eth_usd)}</span>` : '';
+                const usdtLine   = fmtUsdt(w.usdt_balance)
                     ? `<div class="account-usdt">${fmtUsdt(w.usdt_balance)} USDT</div>` : '';
                 return `
                     <div class="account-row" data-address="${w.address}">
-                        <div class="account-dot"
-                            style="background:${w._color};"></div>
+                        <div class="account-dot" style="background:${w._color};"></div>
                         <div class="account-info">
                             <div class="account-addr">${short}</div>
                             <div class="account-balance">${balEth}</div>
-                            ${w.error ? '' : usdSpan(w.balance)}
+                            ${w.error ? '' : ethUsdStr}
                             ${usdtLine}
                         </div>
                         <div class="account-pct" style="color:${w._color}">${pct}%</div>
@@ -433,10 +488,11 @@ function displayPortfolio(data) {
     }
 
     // ── Donut chart ───────────────────────────────────────
+    // Use loadedWallets (not data.wallets) — it carries the _color assignments made above.
     renderDonutChartTo(
         document.getElementById('portfolio-chart'),
-        data.wallets,
-        total,
+        loadedWallets,
+        pm.totalEth,
         'sub-accounts-panel'
     );
 
@@ -809,30 +865,40 @@ function displayResults(data) {
 function renderAfterPortfolio(data) {
     if (!data.summary || data.summary.length === 0) return;
 
-    const total       = data.summary.reduce((s, w) => s + w.post, 0);
-    const totalUsdt   = data.summary.reduce((s, w) => s + (w.usdt_post || 0), 0);
+    // Normalise summary entries so portfolioMetrics() can read them:
+    // summary uses "post" for ETH balance and "usdt_post" for USDT.
+    // Temporarily alias fields so the generic helper works without modification.
+    const summaryForMetrics = data.summary.map(w => ({
+        ...w,
+        balance:      w.post,
+        usdt_balance: w.usdt_post ?? 0,
+        error:        null,
+    }));
+    const pm          = portfolioMetrics(summaryForMetrics);
     const masterEntry = data.summary.find(w => w.role === 'master');
     const subEntries  = data.summary.filter(w => w.role === 'sub');
 
     // ── Master after-hero ─────────────────────────────────
-    const mShort    = masterEntry.address.slice(0,6) + '...' + masterEntry.address.slice(-4);
-    const mPct      = total > 0 ? (masterEntry.post / total * 100).toFixed(1) : '0';
-    const mDelta    = masterEntry.delta;
-    const mDeltaColor = mDelta > 0 ? 'var(--green)' : mDelta < 0 ? 'var(--red)' : 'var(--text-3)';
-    const mDeltaStr   = mDelta === 0
+    const mShort       = masterEntry.address.slice(0,6) + '...' + masterEntry.address.slice(-4);
+    const mPct         = pm.totalEth > 0 ? (masterEntry.post / pm.totalEth * 100).toFixed(1) : '0';
+    const mDelta       = masterEntry.delta;
+    const mDeltaColor  = mDelta > 0 ? 'var(--green)' : mDelta < 0 ? 'var(--red)' : 'var(--text-3)';
+    const mDeltaStr    = mDelta === 0
         ? 'No change'
         : `${mDelta > 0 ? '↑ +' : '↓ '}${mDelta.toFixed(4)} ETH`;
-    const mUsdtDelta  = masterEntry.usdt_delta || 0;
-    const mUsdtPost   = masterEntry.usdt_post  || 0;
-    const afterTotalUsd = fmtUsd(total);
+    const mUsdtDelta   = masterEntry.usdt_delta || 0;
+    const mUsdtPost    = masterEntry.usdt_post  || 0;
+    // Per-wallet USD for master after-state
+    const mEthUsd      = ethToUsd(masterEntry.post);
+    const mUsdtStr     = fmtUsdt(mUsdtPost);
 
     document.getElementById('after-master-overview').innerHTML = `
         <div class="master-left">
             <span class="master-badge after-badge">Master Wallet</span>
             <div class="master-addr">${mShort}</div>
             <div class="master-balance">${masterEntry.post.toFixed(4)} <span class="master-unit">ETH</span></div>
-            ${usdSpan(masterEntry.post)}
-            ${mUsdtPost > 0 ? `<div class="master-usdt-bal">${fmtUsdt(mUsdtPost)} USDT</div>` : ''}
+            ${mEthUsd != null ? `<span class="val-usd">${fmtDollars(mEthUsd)}</span>` : ''}
+            ${mUsdtStr ? `<div class="master-usdt-bal">${mUsdtStr} USDT</div>` : ''}
             <div class="master-delta" style="color:${mDeltaColor}">${mDeltaStr}</div>
             ${mUsdtDelta !== 0 ? `
             <div class="master-delta" style="color:${mUsdtDelta > 0 ? 'var(--green)' : 'var(--red)'}">
@@ -842,20 +908,20 @@ function renderAfterPortfolio(data) {
         </div>
         <div class="portfolio-totals">
             <div class="ptotal-item">
-                <div class="ptotal-value">${fmtEth(total)}</div>
+                <div class="ptotal-value">${fmtEth(pm.totalEth)}</div>
                 <div class="ptotal-label">Total ETH</div>
             </div>
             <div class="ptotal-divider"></div>
-            ${afterTotalUsd ? `
+            ${pm.totalUsdt > 0 ? `
             <div class="ptotal-item">
-                <div class="ptotal-value">${afterTotalUsd}</div>
-                <div class="ptotal-label">Total USD</div>
+                <div class="ptotal-value">${fmtDollars(pm.totalUsdt)}</div>
+                <div class="ptotal-label">Total USDT</div>
             </div>
             <div class="ptotal-divider"></div>` : ''}
-            ${totalUsdt > 0 ? `
+            ${pm.totalUsd != null ? `
             <div class="ptotal-item">
-                <div class="ptotal-value">${fmtUsdt(totalUsdt)}</div>
-                <div class="ptotal-label">Total USDT</div>
+                <div class="ptotal-value">${fmtDollars(pm.totalUsd)}</div>
+                <div class="ptotal-label">Total USD</div>
             </div>
             <div class="ptotal-divider"></div>` : ''}
             <div class="ptotal-item">
@@ -873,9 +939,11 @@ function renderAfterPortfolio(data) {
     const rows = subEntries.map(w => {
         const short      = w.address.slice(0,6) + '...' + w.address.slice(-4);
         const color      = getWalletColor(w.address);
-        const pct        = total > 0 ? (w.post / total * 100).toFixed(1) : '0';
+        const pct        = pm.totalEth > 0 ? (w.post / pm.totalEth * 100).toFixed(1) : '0';
         const delta      = w.delta;
         const usdtDelta  = w.usdt_delta || 0;
+        // Compute post-transfer ETH→USD via centralized layer.
+        const postEthUsd = ethToUsd(w.post);
 
         let pillClass, pillText;
         if (delta > 0) {
@@ -907,7 +975,7 @@ function renderAfterPortfolio(data) {
                         <span class="delta-pill ${pillClass}">${pillText}</span>
                         ${usdtPillHtml}
                     </div>
-                    ${usdSpan(w.post)}
+                    ${postEthUsd != null ? `<span class="val-usd">${fmtDollars(postEthUsd)}</span>` : ''}
                 </div>
                 <div class="account-pct" style="color:${color}">${pct}%</div>
             </div>`;
@@ -932,7 +1000,7 @@ function renderAfterPortfolio(data) {
     renderDonutChartTo(
         document.getElementById('after-chart'),
         afterWallets,
-        total,
+        pm.totalEth,
         'after-sub-accounts'
     );
 
@@ -1105,10 +1173,12 @@ function _renderPDF() {
     }
 
     // ── Data ──────────────────────────────────────────────
+    // loadedWallets are already enriched with eth_usd / usdt_usd / total_usd.
 
     const master     = loadedWallets.find(w => w.role === 'master');
     const subs       = loadedWallets.filter(w => w.role === 'sub');
-    const total      = loadedWallets.reduce((s, w) => s + (!w.error ? (w.balance || 0) : 0), 0);
+    const pm         = portfolioMetrics(loadedWallets);  // canonical aggregates
+    const total      = pm.totalEth;                       // replaces manual reduce
 
     const {
         transfers = [], summary = [],
@@ -1157,10 +1227,10 @@ function _renderPDF() {
     y += 6;
 
     miniStats([
-        { label: 'Total ETH',    val: `${total.toFixed(4)} ETH`  },
-        { label: 'Wallets',      val: loadedWallets.length        },
-        { label: 'Transfers',    val: transfers.length            },
-        { label: 'ETH Moved',    val: totalMoved.toFixed(4)       },
+        { label: 'Total ETH',       val: `${total.toFixed(4)} ETH`                           },
+        { label: 'Portfolio USD',   val: pm.totalUsd  != null ? fmtDollars(pm.totalUsd)  : '—' },
+        { label: 'Wallets',         val: loadedWallets.length                                 },
+        { label: 'Transfers',       val: transfers.length                                     },
     ]);
     y += 4;
 
