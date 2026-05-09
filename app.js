@@ -152,6 +152,8 @@ function addSubwallet() {
     const row  = document.createElement('div');
     row.className = 'subwallet-row';
     row.innerHTML = `
+        <input type="text" placeholder="Label (optional)" class="sub-label"
+            autocomplete="off" spellcheck="false" maxlength="30" />
         <input type="text" placeholder="0x..." class="sub-address"
             autocomplete="off" spellcheck="false" />
         <button class="btn-remove" onclick="removeSubwallet(this)" title="Remove">&#x2715;</button>
@@ -198,6 +200,8 @@ function saveDraft() {
             masterAddress:  document.getElementById('master-address').value.trim(),
             subAddresses:   Array.from(document.querySelectorAll('.sub-address'))
                                 .map(el => el.value.trim()).filter(Boolean),
+            subLabels:      Array.from(document.querySelectorAll('.sub-label'))
+                                .map(el => el.value.trim()),
             // Strip ephemeral _color before serialising
             loadedWallets:  loadedWallets.map(({ _color, ...w }) => w),
             ethUsdPrice,
@@ -257,10 +261,14 @@ function restoreDraft() {
     if (draft.subAddresses?.length) {
         const list = document.getElementById('subwallet-list');
         list.innerHTML = '';  // remove the blank row added by addSubwallet()
-        draft.subAddresses.forEach(addr => {
+        draft.subAddresses.forEach((addr, i) => {
             addSubwallet();
-            const inputs = list.querySelectorAll('.sub-address');
-            inputs[inputs.length - 1].value = addr;
+            const rows    = list.querySelectorAll('.subwallet-row');
+            const lastRow = rows[rows.length - 1];
+            lastRow.querySelector('.sub-address').value = addr;
+            // subLabels is optional — old drafts won't have it (backward compatible)
+            const label = draft.subLabels?.[i] ?? '';
+            if (label) lastRow.querySelector('.sub-label').value = label;
         });
     }
 
@@ -272,7 +280,11 @@ function restoreDraft() {
 
     // ── Step 2: restore portfolio view ───────────────────
     // Re-run walletMetrics so USD fields are consistent with restored prices.
-    loadedWallets = draft.loadedWallets.map(w => ({ ...w, ...walletMetrics(w) }));
+    loadedWallets = draft.loadedWallets.map(w => ({
+        ...w,
+        label: w.role === 'master' ? 'Master Wallet' : (w.label ?? ''),
+        ...walletMetrics(w),
+    }));
     displayPortfolio({});   // reads loadedWallets global directly
 
     // ── Step 3: restore pooling setup ────────────────────
@@ -371,6 +383,45 @@ function getWalletColor(address) {
     return w.role === 'master' ? MASTER_CHART_COLOR : (w._color || MASTER_CHART_COLOR);
 }
 
+// ── Wallet identity helpers ───────────────────────────────
+
+// Returns the wallet's label, or null if unset.
+function walletLabel(w) {
+    return w?.label?.trim() || null;
+}
+
+// Short address: 0x1234...5678
+function shortAddr(addr) {
+    return addr.slice(0, 6) + '...' + addr.slice(-4);
+}
+
+// Two-line identity block: label (primary) + address (secondary).
+// Falls back to address-only when no label.
+function walletIdHtml(w) {
+    const label = walletLabel(w);
+    const addr  = shortAddr(w.address);
+    if (!label) return `<span class="wallet-addr-only">${addr}</span>`;
+    return `<span class="wallet-label">${label}</span>`
+         + `<span class="wallet-addr">${addr}</span>`;
+}
+
+// Same, but looks up the wallet by address from loadedWallets.
+function walletIdHtmlByAddr(address) {
+    const w = loadedWallets.find(x => x.address.toLowerCase() === address.toLowerCase());
+    return w ? walletIdHtml(w) : `<span class="wallet-addr-only">${shortAddr(address)}</span>`;
+}
+
+// Build a label map from the current Step-1 sub-wallet inputs.
+function getLabelMapFromInputs() {
+    const map = {};
+    document.querySelectorAll('.subwallet-row').forEach(row => {
+        const addr  = row.querySelector('.sub-address')?.value.trim().toLowerCase();
+        const label = row.querySelector('.sub-label')?.value.trim() ?? '';
+        if (addr) map[addr] = label;
+    });
+    return map;
+}
+
 // ── Step 1: Load Portfolio ────────────────────────────────
 
 // Clear any previous rebalance output so Steps 4 and 5 never show
@@ -427,8 +478,14 @@ async function refreshPortfolio() {
 
         if (!response.ok) throw new Error('Server error');
 
-        const data        = await response.json();
-        loadedWallets     = data.wallets.map(w => ({ ...w, ...walletMetrics(w) }));
+        const data    = await response.json();
+        // Re-attach labels from Step-1 inputs (they persist across refreshes)
+        const lblMap  = getLabelMapFromInputs();
+        loadedWallets = data.wallets.map(w => ({
+            ...w,
+            label: w.role === 'master' ? 'Master Wallet' : (lblMap[w.address.toLowerCase()] ?? ''),
+            ...walletMetrics(w),
+        }));
 
         displayPortfolio(data);
 
@@ -483,9 +540,13 @@ async function loadPortfolio() {
         const data = await response.json();
         if (!response.ok) { errorEl.textContent = 'Server error. Please try again.'; return; }
 
-        // Enrich each wallet with computed USD fields (eth_usd, usdt_usd, total_usd).
-        // ethUsdPrice is set by this point (fetched in parallel above).
-        loadedWallets = data.wallets.map(w => ({ ...w, ...walletMetrics(w) }));
+        // Enrich each wallet with USD fields and attach any user-set labels.
+        const labelMap = getLabelMapFromInputs();
+        loadedWallets = data.wallets.map(w => ({
+            ...w,
+            label: w.role === 'master' ? 'Master Wallet' : (labelMap[w.address.toLowerCase()] ?? ''),
+            ...walletMetrics(w),
+        }));
         displayPortfolio(data);
         buildPoolingSetup(loadedWallets);
         saveDraft();  // persist fresh portfolio state immediately after load
@@ -707,7 +768,6 @@ function displayPortfolio(data) {
                 Sub-Accounts <span class="accounts-count">${subs.length}</span>
             </div>
             ${subs.map(w => {
-                const short         = w.address.slice(0,6) + '...' + w.address.slice(-4);
                 const ethPct        = pm.totalEth  > 0 && !w.error
                     ? (w.balance      / pm.totalEth  * 100).toFixed(1) : '0';
                 const usdtPct       = pm.totalUsdt > 0 && !w.error
@@ -720,7 +780,7 @@ function displayPortfolio(data) {
                     <div class="account-row" data-address="${w.address}">
                         <div class="account-dot" style="background:${w._color};"></div>
                         <div class="account-body">
-                            <div class="account-addr">${short}</div>
+                            <div class="account-addr">${walletIdHtml(w)}</div>
                             <div style="font-size:11px;color:var(--red);margin-top:4px;">${w.error}</div>
                         </div>
                     </div>`;
@@ -729,7 +789,7 @@ function displayPortfolio(data) {
                     <div class="account-row" data-address="${w.address}">
                         <div class="account-dot" style="background:${w._color};"></div>
                         <div class="account-body">
-                            <div class="account-addr">${short}</div>
+                            <div class="account-addr">${walletIdHtml(w)}</div>
                             <div class="account-metrics">
                                 <div class="account-metric">
                                     <div class="account-metric-bal">${w.balance.toFixed(4)} <span class="account-metric-unit">ETH</span></div>
@@ -837,7 +897,6 @@ function buildPoolingSetup(wallets) {
     tbody.innerHTML = '';
 
     wallets.forEach((wallet, index) => {
-        const short     = wallet.address.slice(0,6) + '...' + wallet.address.slice(-4);
         const isMaster  = wallet.role === 'master';
         const roleClass = isMaster ? 'role-master' : 'role-sub';
         const roleName  = isMaster ? 'Master' : 'Sub';
@@ -858,7 +917,7 @@ function buildPoolingSetup(wallets) {
 
         if (isMaster) {
             row.innerHTML = `
-                <td class="cell-mono">${short}</td>
+                <td>${walletIdHtml(wallet)}</td>
                 <td><span class="badge ${roleClass}">${roleName}</span></td>
                 <td class="cell-num">${wallet.balance.toFixed(4)} ETH</td>
                 <td>
@@ -900,7 +959,7 @@ function buildPoolingSetup(wallets) {
                 </td>`;
         } else {
             row.innerHTML = `
-                <td class="cell-mono">${short}</td>
+                <td>${walletIdHtml(wallet)}</td>
                 <td><span class="badge ${roleClass}">${roleName}</span></td>
                 <td class="cell-num">${wallet.balance.toFixed(4)} ETH</td>
                 <td>
@@ -1247,8 +1306,6 @@ function displayResults(data) {
     } else {
         if (execNote) execNote.classList.remove('hidden');
         sorted.forEach((t, i) => {
-            const from   = t.from.slice(0,6) + '...' + t.from.slice(-4);
-            const to     = t.to.slice(0,6)   + '...' + t.to.slice(-4);
             const tInfo  = typeLabels[t.type] || { label: t.type, css: '' };
             const token  = t.token || 'ETH';
             const row    = document.createElement('tr');
@@ -1256,8 +1313,8 @@ function displayResults(data) {
                 <td class="cell-num">${i + 1}</td>
                 <td><span class="type-badge ${tInfo.css}">${tInfo.label}</span></td>
                 <td><span class="token-badge token-${token.toLowerCase()}">${token}</span></td>
-                <td class="cell-mono">${from}</td>
-                <td class="cell-mono">${to}</td>
+                <td>${walletIdHtmlByAddr(t.from)}</td>
+                <td>${walletIdHtmlByAddr(t.to)}</td>
                 <td class="cell-num">${t.amount.toFixed(4)} ${token}</td>`;
             tbody.appendChild(row);
         });
@@ -1331,7 +1388,6 @@ function renderAfterPortfolio(data) {
 
     // ── Sub-accounts list with deltas ─────────────────────
     const rows = subEntries.map(w => {
-        const short        = w.address.slice(0,6) + '...' + w.address.slice(-4);
         const color        = getWalletColor(w.address);
         const ethPct       = pm.totalEth  > 0 ? (w.post              / pm.totalEth  * 100).toFixed(1) : '0';
         const usdtPct      = pm.totalUsdt > 0 ? ((w.usdt_post ?? 0)  / pm.totalUsdt * 100).toFixed(1) : '0';
@@ -1353,7 +1409,7 @@ function renderAfterPortfolio(data) {
             <div class="account-row" data-address="${w.address}">
                 <div class="account-dot" style="background:${color};"></div>
                 <div class="account-body">
-                    <div class="account-addr">${short}</div>
+                    <div class="account-addr">${walletIdHtmlByAddr(w.address)}</div>
                     <div class="account-metrics">
                         <div class="account-metric">
                             <div class="account-metric-bal">${w.post.toFixed(4)} <span class="account-metric-unit">ETH</span></div>
