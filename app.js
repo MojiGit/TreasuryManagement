@@ -19,23 +19,32 @@ const MASTER_CHART_COLOR = '#94A3B8';
 
 // ── Pricing & Metrics ─────────────────────────────────────
 //
-// USDT is pegged 1:1 to USD. The rate is explicit here so that
-// any future token additions are immediately obvious by contrast.
-const USDT_USD_RATE = 1.0;
+let ethUsdPrice   = null;
+let usdtUsdPrice  = null;   // live market rate; falls back to 1.0 if unavailable
+let pricesFetchedAt = null; // Date of last successful price fetch
 
-let ethUsdPrice = null;
-
-async function fetchEthPrice() {
+async function fetchPrices() {
     try {
         const res  = await fetch(
-            'https://api.coingecko.com/api/v3/simple/price?ids=ethereum&vs_currencies=usd',
+            'https://api.coingecko.com/api/v3/simple/price?ids=ethereum,tether&vs_currencies=usd',
             { signal: AbortSignal.timeout(8000) }
         );
         const json = await res.json();
-        ethUsdPrice = json?.ethereum?.usd ?? null;
+        ethUsdPrice  = json?.ethereum?.usd ?? null;
+        usdtUsdPrice = json?.tether?.usd   ?? null;
+        pricesFetchedAt = new Date();
     } catch {
-        ethUsdPrice = null;
+        ethUsdPrice     = null;
+        usdtUsdPrice    = null;
+        pricesFetchedAt = null;
     }
+}
+
+// ── USDT/USD rate ─────────────────────────────────────
+// Uses the live CoinGecko rate when available; falls back to the
+// canonical $1.00 peg if the fetch failed or price is unavailable.
+function usdtRate() {
+    return usdtUsdPrice ?? 1.0;
 }
 
 // ── Rounding utilities ────────────────────────────────────
@@ -50,7 +59,7 @@ const r4 = v => Math.round(v * 10000) / 10000; // 4 d.p. — ETH
 function walletMetrics(w) {
     if (w.error) return { eth_usd: null, usdt_usd: null, total_usd: null };
     const eth_usd   = ethToUsd(w.balance);
-    const usdt_usd  = r2((w.usdt_balance ?? 0) * USDT_USD_RATE);
+    const usdt_usd  = r2((w.usdt_balance ?? 0) * usdtRate());
     const total_usd = eth_usd != null ? r2(eth_usd + usdt_usd) : null;
     return { eth_usd, usdt_usd, total_usd };
 }
@@ -65,7 +74,7 @@ function portfolioMetrics(wallets, balanceKey = 'balance') {
     const totalEth    = r4(ok.reduce((s, w) => s + (w[balanceKey] ?? 0), 0));
     const totalUsdt   = r2(ok.reduce((s, w) => s + (w.usdt_balance ?? w.usdt_post ?? 0), 0));
     const totalEthUsd = ethToUsd(totalEth);
-    const totalUsdtUsd = r2(totalUsdt * USDT_USD_RATE);
+    const totalUsdtUsd = r2(totalUsdt * usdtRate());
     const totalUsd    = totalEthUsd != null ? r2(totalEthUsd + totalUsdtUsd) : null;
     return { totalEth, totalUsdt, totalEthUsd, totalUsdtUsd, totalUsd };
 }
@@ -98,7 +107,7 @@ function fmtUsd(eth) {
 // not a dollar sign). Returns null for null/zero so callers use the same falsy check.
 function fmtUsdt(val) {
     if (val == null) return null;
-    const n = r2(val * USDT_USD_RATE);
+    const n = r2(val * usdtRate());
     if (n >= 1e9) return (n / 1e9).toFixed(2) + 'B';
     if (n >= 1e6) return (n / 1e6).toFixed(2) + 'M';
     return n.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
@@ -261,7 +270,7 @@ async function loadPortfolio() {
                 headers: { 'Content-Type': 'application/json' },
                 body:    JSON.stringify({ wallets })
             }),
-            fetchEthPrice(),
+            fetchPrices(),
         ]);
         const data = await response.json();
         if (!response.ok) { errorEl.textContent = 'Server error. Please try again.'; return; }
@@ -560,10 +569,25 @@ function displayPortfolio(data) {
     }
 
     // ── Pricing legend ────────────────────────────────────
-    const legendEl   = document.getElementById('portfolio-pricing-legend');
-    const ethPriceStr = ethUsdPrice != null
+    const legendEl    = document.getElementById('portfolio-pricing-legend');
+    const ethPriceStr = ethUsdPrice  != null
         ? '$' + ethUsdPrice.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })
         : 'unavailable';
+    const usdtStr     = usdtUsdPrice != null
+        ? usdtUsdPrice.toFixed(4)
+        : '1.0000 (peg)';
+
+    // Format capture time and compute staleness in minutes
+    let timestampHtml = '';
+    if (pricesFetchedAt) {
+        const hh   = String(pricesFetchedAt.getHours()).padStart(2, '0');
+        const mm   = String(pricesFetchedAt.getMinutes()).padStart(2, '0');
+        const ss   = String(pricesFetchedAt.getSeconds()).padStart(2, '0');
+        const ageMin = Math.floor((Date.now() - pricesFetchedAt.getTime()) / 60000);
+        const ageTxt = ageMin === 0 ? 'just now' : `${ageMin} min ago`;
+        timestampHtml = `<span class="pricing-legend-ts">fetched ${hh}:${mm}:${ss} — ${ageTxt}</span>`;
+    }
+
     legendEl.innerHTML = `
         <span class="pricing-legend-label">Pricing basis</span>
         <span class="pricing-legend-item">
@@ -572,9 +596,10 @@ function displayPortfolio(data) {
         </span>
         <span class="pricing-legend-item">
             <span class="pricing-legend-token">USDT/USD</span>
-            <span class="pricing-legend-value">${USDT_USD_RATE.toFixed(4)}</span>
+            <span class="pricing-legend-value">${usdtStr}</span>
         </span>
-        <span class="pricing-legend-source">CoinGecko</span>`;
+        <span class="pricing-legend-source">CoinGecko</span>
+        ${timestampHtml}`;
     legendEl.classList.remove('hidden');
 
     document.getElementById('portfolio-view').classList.remove('hidden');
@@ -599,10 +624,13 @@ function buildPoolingSetup(wallets) {
         row.dataset.address = wallet.address;
         row.dataset.role    = wallet.role;
 
-        // ETH/USD currency toggle — only rendered when ETH price is loaded
-        const toggleBtn = ethUsdPrice
+        // ETH/USD toggle — only when ETH price is available
+        const ethToggleBtn = ethUsdPrice
             ? '<button class="currency-toggle" onclick="toggleTargetCurrency(this)" disabled>ETH</button>'
             : '';
+        // USDT/USD toggle — always available (usdtRate() always returns a value)
+        const usdtToggleBtn =
+            '<button class="currency-toggle" onclick="toggleUsdtTargetCurrency(this)" disabled>USDT</button>';
 
         if (isMaster) {
             row.innerHTML = `
@@ -621,7 +649,7 @@ function buildPoolingSetup(wallets) {
                                 <input type="number" class="target-input master-target-input"
                                     placeholder="Min ETH" step="0.0001" min="0" disabled
                                     data-currency="eth" oninput="updateConversionHint(this)" />
-                                ${toggleBtn}
+                                ${ethToggleBtn}
                             </div>
                             <span class="conversion-hint"></span>
                         </div>
@@ -635,8 +663,15 @@ function buildPoolingSetup(wallets) {
                             <option value="hub">Hub (no minimum)</option>
                             <option value="minimum">Minimum Balance</option>
                         </select>
-                        <input type="number" class="target-input master-usdt-target-input"
-                            placeholder="Min USDT" step="0.01" min="0" disabled />
+                        <div class="target-field">
+                            <div class="target-input-row">
+                                <input type="number" class="target-input master-usdt-target-input"
+                                    placeholder="Min USDT" step="0.01" min="0" disabled
+                                    data-currency="usdt" oninput="updateUsdtConversionHint(this)" />
+                                ${usdtToggleBtn}
+                            </div>
+                            <span class="conversion-hint"></span>
+                        </div>
                     </div>
                 </td>`;
         } else {
@@ -656,7 +691,7 @@ function buildPoolingSetup(wallets) {
                                 <input type="number" class="target-input sub-target-input"
                                     placeholder="e.g. 1.0" step="0.0001" min="0" disabled
                                     data-currency="eth" oninput="updateConversionHint(this)" />
-                                ${toggleBtn}
+                                ${ethToggleBtn}
                             </div>
                             <span class="conversion-hint"></span>
                         </div>
@@ -670,8 +705,15 @@ function buildPoolingSetup(wallets) {
                             <option value="zero">Zero Balance</option>
                             <option value="target">Target Balance</option>
                         </select>
-                        <input type="number" class="target-input sub-usdt-target-input"
-                            placeholder="e.g. 100" step="0.01" min="0" disabled />
+                        <div class="target-field">
+                            <div class="target-input-row">
+                                <input type="number" class="target-input sub-usdt-target-input"
+                                    placeholder="e.g. 5,000" step="0.01" min="0" disabled
+                                    data-currency="usdt" oninput="updateUsdtConversionHint(this)" />
+                                ${usdtToggleBtn}
+                            </div>
+                            <span class="conversion-hint"></span>
+                        </div>
                     </div>
                 </td>`;
         }
@@ -714,18 +756,28 @@ function toggleMasterTarget(select) {
 function toggleUsdtTarget(select) {
     const row    = select.closest('.pool-config');
     const input  = row.querySelector('.sub-usdt-target-input');
+    const toggle = row.querySelector('.currency-toggle');
+    const hint   = row.querySelector('.conversion-hint');
     const enable = select.value === 'target';
+
     input.disabled = !enable;
+    if (toggle) toggle.disabled = !enable;
     input.value = '';
+    if (hint) { hint.textContent = ''; hint.style.display = 'none'; }
     if (enable) input.focus();
 }
 
 function toggleMasterUsdtTarget(select) {
     const row    = select.closest('.pool-config');
     const input  = row.querySelector('.master-usdt-target-input');
+    const toggle = row.querySelector('.currency-toggle');
+    const hint   = row.querySelector('.conversion-hint');
     const enable = select.value === 'minimum';
+
     input.disabled = !enable;
+    if (toggle) toggle.disabled = !enable;
     input.value = '';
+    if (hint) { hint.textContent = ''; hint.style.display = 'none'; }
     if (enable) input.focus();
 }
 
@@ -745,6 +797,48 @@ function toggleTargetCurrency(btn) {
     input.value            = '';
     if (hint) { hint.textContent = ''; hint.style.display = 'none'; }
     input.focus();
+}
+
+// Switch a USDT target input between USDT and USD entry modes
+function toggleUsdtTargetCurrency(btn) {
+    const input   = btn.previousElementSibling;
+    const hint    = btn.closest('.target-field').querySelector('.conversion-hint');
+    const toUsd   = input.dataset.currency !== 'usd';
+
+    input.dataset.currency = toUsd ? 'usd' : 'usdt';
+    btn.textContent        = toUsd ? 'USD' : 'USDT';
+    btn.classList.toggle('active', toUsd);
+    input.placeholder      = toUsd
+        ? 'e.g. 5,000'
+        : (input.classList.contains('master-usdt-target-input') ? 'Min USDT' : 'e.g. 5,000');
+    input.step             = toUsd ? '1' : '0.01';
+    input.value            = '';
+    if (hint) { hint.textContent = ''; hint.style.display = 'none'; }
+    input.focus();
+}
+
+// Show live USDT↔USD conversion hint below the USDT target input
+function updateUsdtConversionHint(input) {
+    const field = input.closest('.target-field');
+    if (!field) return;
+    const hint = field.querySelector('.conversion-hint');
+    if (!hint) return;
+
+    const val = parseFloat(input.value);
+    if (!val || val <= 0) {
+        hint.textContent   = '';
+        hint.style.display = 'none';
+        return;
+    }
+
+    const rate = usdtRate();
+    if (input.dataset.currency === 'usd') {
+        hint.textContent = '≈ ' + (val / rate).toFixed(2) + ' USDT';
+    } else {
+        const usd = val * rate;
+        hint.textContent = '≈ $' + usd.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+    }
+    hint.style.display = 'block';
 }
 
 // Show live ETH↔USD conversion hint below the target input
@@ -795,9 +889,12 @@ async function runPool() {
             }
             // USDT config
             const usdtMode = row.querySelector('.master-usdt-mode-select').value;
-            const usdtTarget = usdtMode === 'minimum'
-                ? (parseFloat(row.querySelector('.master-usdt-target-input').value) || 0)
-                : 0;
+            let usdtTarget = 0;
+            if (usdtMode === 'minimum') {
+                const inp = row.querySelector('.master-usdt-target-input');
+                const raw = parseFloat(inp.value) || 0;
+                usdtTarget = inp.dataset.currency === 'usd' ? raw / usdtRate() : raw;
+            }
 
             wallets.push({ address, role, mode: null, target: ethTarget,
                            usdt_mode: null, usdt_target: usdtTarget });
@@ -813,9 +910,12 @@ async function runPool() {
             }
             // USDT config
             const usdtMode = row.querySelector('.usdt-mode-select').value;
-            const usdtTarget = usdtMode === 'target'
-                ? (parseFloat(row.querySelector('.sub-usdt-target-input').value) || 0)
-                : 0;
+            let usdtTarget = 0;
+            if (usdtMode === 'target') {
+                const inp = row.querySelector('.sub-usdt-target-input');
+                const raw = parseFloat(inp.value) || 0;
+                usdtTarget = inp.dataset.currency === 'usd' ? raw / usdtRate() : raw;
+            }
 
             wallets.push({ address, role, mode: ethMode, target: ethTarget,
                            usdt_mode: usdtMode, usdt_target: usdtTarget });
@@ -912,7 +1012,10 @@ function displayResults(data) {
     const tbody = document.getElementById('transfer-body');
     tbody.innerHTML = '';
 
+    const execNote = document.getElementById('transfer-exec-note');
+
     if (sorted.length === 0) {
+        if (execNote) execNote.classList.add('hidden');
         tbody.innerHTML = `
             <tr class="empty-row"><td colspan="6">
                 <div class="empty-icon">&#10003;</div>
@@ -920,6 +1023,7 @@ function displayResults(data) {
                 <div class="empty-sub">No transfers required.</div>
             </td></tr>`;
     } else {
+        if (execNote) execNote.classList.remove('hidden');
         sorted.forEach((t, i) => {
             const from   = t.from.slice(0,6) + '...' + t.from.slice(-4);
             const to     = t.to.slice(0,6)   + '...' + t.to.slice(-4);
@@ -966,7 +1070,7 @@ function renderAfterPortfolio(data) {
     const mUsdtDelta   = masterEntry.usdt_delta || 0;
     const mUsdtPost    = masterEntry.usdt_post  || 0;
     const mEthUsd      = ethToUsd(masterEntry.post);
-    const mUsdtUsd     = r2(mUsdtPost * USDT_USD_RATE);
+    const mUsdtUsd     = r2(mUsdtPost * usdtRate());
     const mTotalUsd    = mEthUsd != null ? r2(mEthUsd + mUsdtUsd) : null;
 
     const ethDeltaColor  = mDelta    > 0 ? 'var(--green)' : mDelta    < 0 ? 'var(--red)' : 'var(--text-3)';
@@ -1008,7 +1112,7 @@ function renderAfterPortfolio(data) {
         const ethPct       = pm.totalEth  > 0 ? (w.post              / pm.totalEth  * 100).toFixed(1) : '0';
         const usdtPct      = pm.totalUsdt > 0 ? ((w.usdt_post ?? 0)  / pm.totalUsdt * 100).toFixed(1) : '0';
         const postEthUsd   = ethToUsd(w.post);
-        const postUsdtUsd  = r2((w.usdt_post ?? 0) * USDT_USD_RATE);
+        const postUsdtUsd  = r2((w.usdt_post ?? 0) * usdtRate());
         const postTotalUsd = postEthUsd != null ? r2(postEthUsd + postUsdtUsd) : null;
         const portfolioPct = pm.totalUsd > 0 && postTotalUsd != null
             ? (postTotalUsd / pm.totalUsd * 100).toFixed(1) : ethPct;
@@ -1060,7 +1164,7 @@ function renderAfterPortfolio(data) {
     // Build wallet objects with all balance fields needed for three charts.
     const afterWallets = data.summary.map(w => {
         const postEthUsd   = ethToUsd(w.post);
-        const postUsdtUsd  = r2((w.usdt_post ?? 0) * USDT_USD_RATE);
+        const postUsdtUsd  = r2((w.usdt_post ?? 0) * usdtRate());
         const postTotalUsd = postEthUsd != null ? r2(postEthUsd + postUsdtUsd) : null;
         return {
             address:      w.address,
