@@ -455,7 +455,8 @@ body {
   flex-shrink: 0;
 }
 
-.btn-accent .btn-spinner { border-color: rgba(255,255,255,0.3); border-top-color: white; }
+.btn-accent .btn-spinner    { border-color: rgba(255,255,255,0.3); border-top-color: white; }
+.btn-secondary .btn-spinner { border-color: var(--border-2); border-top-color: var(--text-2); }
 
 @keyframes spin { to { transform: rotate(360deg); } }
 

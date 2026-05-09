@@ -372,10 +372,89 @@ function getWalletColor(address) {
 }
 
 // ── Step 1: Load Portfolio ────────────────────────────────
+
+// Clear any previous rebalance output so Steps 4 and 5 never show
+// stale calculations after loading a new portfolio.
+function clearRebalanceResults() {
+    lastPoolResult = null;
+    lastPoolConfig = [];
+
+    ['results-view', 'after-view'].forEach(id => {
+        document.getElementById(id)?.classList.add('hidden');
+    });
+
+    // Clear inner content so DOM references are clean for the next run
+    document.getElementById('results-summary').innerHTML  = '';
+    document.getElementById('transfer-body').innerHTML    = '';
+    document.getElementById('after-sub-accounts').innerHTML = '';
+    document.getElementById('after-master-overview').innerHTML = '';
+
+    // Hide the execution-order note and infeasibility banner
+    document.getElementById('transfer-exec-note')?.classList.add('hidden');
+    document.getElementById('infeasible-msg')?.classList.add('hidden');
+
+    // Clear the three after-view charts
+    ['after-chart', 'after-usdt-chart', 'after-usd-chart'].forEach(id => {
+        const el = document.getElementById(id);
+        if (el) el.innerHTML = '';
+    });
+}
+
+async function refreshPortfolio() {
+    if (!loadedWallets.length) return;
+
+    const btn = document.getElementById('refresh-btn');
+    setLoading(btn, true);
+
+    try {
+        // Snapshot pooling config before the table is rebuilt
+        saveDraft();
+        const savedConfig = _loadRawDraft()?.poolingConfig ?? {};
+
+        // Only addresses and roles are needed for /api/load
+        const walletInputs = loadedWallets.map(w => ({
+            address: w.address, role: w.role, mode: null, target: null,
+        }));
+
+        const [response] = await Promise.all([
+            fetch('/api/load', {
+                method:  'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body:    JSON.stringify({ wallets: walletInputs }),
+            }),
+            fetchPrices(),
+        ]);
+
+        if (!response.ok) throw new Error('Server error');
+
+        const data        = await response.json();
+        loadedWallets     = data.wallets.map(w => ({ ...w, ...walletMetrics(w) }));
+
+        displayPortfolio(data);
+
+        // Rebuild the pooling table with fresh balances, then restore saved config
+        buildPoolingSetup(loadedWallets);
+        if (Object.keys(savedConfig).length) {
+            _restorePoolingConfig(savedConfig);
+        }
+
+        // The rebalance plan was based on stale data — clear it
+        clearRebalanceResults();
+
+        saveDraft();
+    } catch (err) {
+        console.error('[CryptoTreasury] Refresh failed:', err);
+    } finally {
+        setLoading(btn, false);
+    }
+}
+
 async function loadPortfolio() {
     const errorEl = document.getElementById('load-error');
     const loadBtn = document.getElementById('load-btn');
     errorEl.textContent = '';
+
+    clearRebalanceResults();
 
     const masterAddress = document.getElementById('master-address').value.trim();
     const subInputs     = document.querySelectorAll('.sub-address');
