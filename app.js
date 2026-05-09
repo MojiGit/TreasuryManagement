@@ -161,9 +161,138 @@ function addSubwallet() {
 
 function removeSubwallet(btn) { btn.parentElement.remove(); }
 
+// ── Draft Persistence ─────────────────────────────────────
+// Persists wallet addresses, live balances, prices, and pooling config.
+// Never persists algorithm outputs (transfer plans, rebalance results).
+
+const DRAFT_KEY = 'ct_draft_v1';
+
+function saveDraft() {
+    if (!loadedWallets.length) return;
+
+    // Capture pooling config from current DOM state
+    const poolingConfig = {};
+    document.querySelectorAll('#pooling-body tr[data-address]').forEach(row => {
+        const addr = row.dataset.address;
+        const role = row.dataset.role;
+        if (role === 'master') {
+            poolingConfig[addr] = {
+                ethMode:    row.querySelector('.master-mode-select')?.value  ?? 'hub',
+                ethTarget:  parseFloat(row.querySelector('.master-target-input')?.value)  || 0,
+                usdtMode:   row.querySelector('.master-usdt-mode-select')?.value ?? 'hub',
+                usdtTarget: parseFloat(row.querySelector('.master-usdt-target-input')?.value) || 0,
+            };
+        } else {
+            poolingConfig[addr] = {
+                ethMode:    row.querySelector('.eth-mode-select')?.value  ?? 'zero',
+                ethTarget:  parseFloat(row.querySelector('.sub-target-input')?.value)  || 0,
+                usdtMode:   row.querySelector('.usdt-mode-select')?.value ?? 'zero',
+                usdtTarget: parseFloat(row.querySelector('.sub-usdt-target-input')?.value) || 0,
+            };
+        }
+    });
+
+    try {
+        localStorage.setItem(DRAFT_KEY, JSON.stringify({
+            savedAt:        new Date().toISOString(),
+            masterAddress:  document.getElementById('master-address').value.trim(),
+            subAddresses:   Array.from(document.querySelectorAll('.sub-address'))
+                                .map(el => el.value.trim()).filter(Boolean),
+            // Strip ephemeral _color before serialising
+            loadedWallets:  loadedWallets.map(({ _color, ...w }) => w),
+            ethUsdPrice,
+            usdtUsdPrice,
+            pricesFetchedAt: pricesFetchedAt?.toISOString() ?? null,
+            poolingConfig,
+        }));
+    } catch (e) {
+        console.warn('[CryptoTreasury] Draft save failed:', e);
+    }
+}
+
+function _loadRawDraft() {
+    try {
+        const raw = localStorage.getItem(DRAFT_KEY);
+        return raw ? JSON.parse(raw) : null;
+    } catch { return null; }
+}
+
+// Populate the pooling table rows from a saved config object without
+// triggering the change-event handlers (we're restoring, not user-editing).
+function _restorePoolingConfig(config) {
+    document.querySelectorAll('#pooling-body tr[data-address]').forEach(row => {
+        const addr = row.dataset.address;
+        const role = row.dataset.role;
+        const cfg  = config[addr];
+        if (!cfg) return;
+
+        const set = (selClass, modeVal, inputClass, targetVal, activeWhen) => {
+            const modeEl   = row.querySelector(selClass);
+            const inputEl  = row.querySelector(inputClass);
+            const toggleEl = inputEl?.closest('.target-input-row')?.querySelector('.currency-toggle');
+            if (modeEl)   modeEl.value = modeVal;
+            const enabled = modeVal === activeWhen;
+            if (inputEl)  { inputEl.disabled = !enabled; if (enabled && targetVal) inputEl.value = targetVal; }
+            if (toggleEl) toggleEl.disabled = !enabled;
+        };
+
+        if (role === 'master') {
+            set('.master-mode-select',      cfg.ethMode,  '.master-target-input',      cfg.ethTarget,  'minimum');
+            set('.master-usdt-mode-select', cfg.usdtMode, '.master-usdt-target-input', cfg.usdtTarget, 'minimum');
+        } else {
+            set('.eth-mode-select',  cfg.ethMode,  '.sub-target-input',      cfg.ethTarget,  'target');
+            set('.usdt-mode-select', cfg.usdtMode, '.sub-usdt-target-input', cfg.usdtTarget, 'target');
+        }
+    });
+}
+
+function restoreDraft() {
+    const draft = _loadRawDraft();
+    if (!draft?.loadedWallets?.length) return;
+
+    // ── Step 1: restore address inputs ───────────────────
+    if (draft.masterAddress) {
+        document.getElementById('master-address').value = draft.masterAddress;
+    }
+    if (draft.subAddresses?.length) {
+        const list = document.getElementById('subwallet-list');
+        list.innerHTML = '';  // remove the blank row added by addSubwallet()
+        draft.subAddresses.forEach(addr => {
+            addSubwallet();
+            const inputs = list.querySelectorAll('.sub-address');
+            inputs[inputs.length - 1].value = addr;
+        });
+    }
+
+    // ── Restore prices (must come before displayPortfolio) ─
+    ethUsdPrice     = draft.ethUsdPrice  ?? null;
+    usdtUsdPrice    = draft.usdtUsdPrice ?? null;
+    // Deserialise timestamp so the staleness indicator recalculates age correctly
+    pricesFetchedAt = draft.pricesFetchedAt ? new Date(draft.pricesFetchedAt) : null;
+
+    // ── Step 2: restore portfolio view ───────────────────
+    // Re-run walletMetrics so USD fields are consistent with restored prices.
+    loadedWallets = draft.loadedWallets.map(w => ({ ...w, ...walletMetrics(w) }));
+    displayPortfolio({});   // reads loadedWallets global directly
+
+    // ── Step 3: restore pooling setup ────────────────────
+    buildPoolingSetup(loadedWallets);
+    if (draft.poolingConfig && Object.keys(draft.poolingConfig).length) {
+        _restorePoolingConfig(draft.poolingConfig);
+    }
+}
+
+// ── Initialization ────────────────────────────────────────
 addSubwallet();
 document.getElementById('add-subwallet').addEventListener('click', addSubwallet);
 document.getElementById('load-btn').addEventListener('click', loadPortfolio);
+
+// Auto-save pooling config whenever the user edits it
+document.getElementById('pooling-body').addEventListener('change', saveDraft);
+document.getElementById('pooling-body').addEventListener('input',  saveDraft);
+
+// Restore any persisted draft (runs before first paint)
+restoreDraft();
 
 // ── Validation ────────────────────────────────────────────
 function validateWalletInputs(masterAddress, subAddresses) {
@@ -280,6 +409,7 @@ async function loadPortfolio() {
         loadedWallets = data.wallets.map(w => ({ ...w, ...walletMetrics(w) }));
         displayPortfolio(data);
         buildPoolingSetup(loadedWallets);
+        saveDraft();  // persist fresh portfolio state immediately after load
 
     } catch (err) {
         errorEl.textContent = 'Could not connect to server.';
