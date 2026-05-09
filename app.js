@@ -390,8 +390,22 @@ function renderDonutChartTo(svgEl, wallets, total, containerId, {
         <text x="${cx}" y="${cy + 14}" text-anchor="middle"
             class="chart-center-label">${centerLabel}</text>`;
 
-    // Hover: highlight matching slice + account row (bidirectional)
+    // Hover: highlight matching slice + wallet cards (bidirectional, including master)
     const rowSel = `#${containerId} .account-row`;
+
+    // Map each sub-accounts container to its corresponding master overview element.
+    // The master card carries data-address so it participates in the same interaction.
+    const masterIdMap = {
+        'sub-accounts-panel': 'master-overview',
+        'after-sub-accounts': 'after-master-overview',
+    };
+    const masterEl = document.getElementById(masterIdMap[containerId] ?? '');
+
+    // Returns all interactive wallet elements: sub rows + master card.
+    const allWalletEls = () => [
+        ...document.querySelectorAll(rowSel),
+        ...(masterEl?.dataset.address ? [masterEl] : []),
+    ];
 
     svgEl.querySelectorAll('.chart-slice').forEach(path => {
         path.addEventListener('mouseenter', () => {
@@ -399,29 +413,29 @@ function renderDonutChartTo(svgEl, wallets, total, containerId, {
             svgEl.querySelectorAll('.chart-slice').forEach(p => {
                 p.style.opacity = p.dataset.address === addr ? '1' : '0.2';
             });
-            document.querySelectorAll(rowSel).forEach(row => {
-                row.style.opacity = row.dataset.address === addr ? '1' : '0.25';
+            allWalletEls().forEach(el => {
+                el.style.opacity = el.dataset.address === addr ? '1' : '0.25';
             });
         });
         path.addEventListener('mouseleave', () => {
             svgEl.querySelectorAll('.chart-slice').forEach(p => { p.style.opacity = ''; });
-            document.querySelectorAll(rowSel).forEach(row => { row.style.opacity = ''; });
+            allWalletEls().forEach(el => { el.style.opacity = ''; });
         });
     });
 
-    document.querySelectorAll(rowSel).forEach(row => {
-        row.addEventListener('mouseenter', () => {
-            const addr = row.dataset.address;
+    allWalletEls().forEach(el => {
+        el.addEventListener('mouseenter', () => {
+            const addr = el.dataset.address;
             svgEl.querySelectorAll('.chart-slice').forEach(p => {
                 p.style.opacity = p.dataset.address === addr ? '1' : '0.2';
             });
-            document.querySelectorAll(rowSel).forEach(r => {
-                r.style.opacity = r.dataset.address === addr ? '1' : '0.25';
+            allWalletEls().forEach(e => {
+                e.style.opacity = e.dataset.address === addr ? '1' : '0.25';
             });
         });
-        row.addEventListener('mouseleave', () => {
+        el.addEventListener('mouseleave', () => {
             svgEl.querySelectorAll('.chart-slice').forEach(p => { p.style.opacity = ''; });
-            document.querySelectorAll(rowSel).forEach(r => { r.style.opacity = ''; });
+            allWalletEls().forEach(e => { e.style.opacity = ''; });
         });
     });
 }
@@ -470,7 +484,9 @@ function displayPortfolio(data) {
                 <div class="master-metric-share">${masterUsdtPct}% of USDT portfolio</div>
             </div>
         </div>`;
-    document.getElementById('master-overview').classList.remove('hidden');
+    const masterOverviewEl = document.getElementById('master-overview');
+    masterOverviewEl.classList.remove('hidden');
+    masterOverviewEl.dataset.address = master.address;  // enables chart hover interaction
 
     // ── Sub-accounts list ─────────────────────────────────
     const panel = document.getElementById('sub-accounts-panel');
@@ -603,7 +619,6 @@ function displayPortfolio(data) {
     legendEl.classList.remove('hidden');
 
     document.getElementById('portfolio-view').classList.remove('hidden');
-    document.getElementById('portfolio-view').scrollIntoView({ behavior: 'smooth' });
     setStep(2);
 }
 
@@ -721,7 +736,6 @@ function buildPoolingSetup(wallets) {
     });
 
     document.getElementById('pooling-setup').classList.remove('hidden');
-    document.getElementById('pooling-setup').scrollIntoView({ behavior: 'smooth' });
     setStep(3);
 }
 
@@ -950,7 +964,6 @@ function displayResults(data) {
     const transferDiv = document.getElementById('transfer-results');
 
     section.classList.remove('hidden');
-    section.scrollIntoView({ behavior: 'smooth' });
     setStep(4);
 
     // Show infeasibility warnings (one or both tokens may be infeasible)
@@ -1104,6 +1117,8 @@ function renderAfterPortfolio(data) {
                 <div class="master-metric-share">${mUsdtPct}% of USDT portfolio</div>
             </div>
         </div>`;
+    // Stamp data-address so the master card participates in chart hover interaction.
+    document.getElementById('after-master-overview').dataset.address = masterEntry.address;
 
     // ── Sub-accounts list with deltas ─────────────────────
     const rows = subEntries.map(w => {
@@ -1215,7 +1230,6 @@ function renderAfterPortfolio(data) {
 
     const afterView = document.getElementById('after-view');
     afterView.classList.remove('hidden');
-    afterView.scrollIntoView({ behavior: 'smooth' });
     setStep(5);
 }
 
