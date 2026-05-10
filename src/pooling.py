@@ -121,7 +121,10 @@ def validate_feasibility(results, master_available):
     total_available = total_surplus + master_available
 
     shortfall = max(0, total_deficit - total_available)
-    is_feasible = shortfall == 0
+    # Use an epsilon threshold rather than exact equality: floating-point arithmetic
+    # on rounded 4dp values can produce residuals like 1e-15 instead of exact 0,
+    # which would show "Insufficient funds. Shortfall: 0.0000 ETH" to the user.
+    is_feasible = shortfall < 1e-9
 
     return is_feasible, round(shortfall, 4)
 

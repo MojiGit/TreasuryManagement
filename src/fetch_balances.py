@@ -16,8 +16,13 @@ USDT_CONTRACT = "0xdAC17F958D2ee523a2206206994597C13D831ec7"
 USDT_DECIMALS = 6
 
 
-async def _fetch_usdt_balance(session: aiohttp.ClientSession, address: str) -> float:
-    """Fetch USDT balance for one address. Returns 0.0 on any error."""
+async def _fetch_usdt_balance(session: aiohttp.ClientSession, address: str):
+    """
+    Fetch USDT balance for one address.
+    Returns (balance_float, None) on success.
+    Returns (0.0, error_string) on failure so callers can distinguish
+    a genuine zero balance from a fetch error.
+    """
     params = {
         "chainid":         1,
         "module":          "account",
@@ -34,10 +39,10 @@ async def _fetch_usdt_balance(session: aiohttp.ClientSession, address: str) -> f
         ) as resp:
             data = await resp.json()
         if data["status"] == "1":
-            return round(int(data["result"]) / 10 ** USDT_DECIMALS, 2)
-        return 0.0
-    except Exception:
-        return 0.0
+            return round(int(data["result"]) / 10 ** USDT_DECIMALS, 2), None
+        return 0.0, data.get("result", "Etherscan USDT error")
+    except Exception as e:
+        return 0.0, str(e)
 
 
 async def get_balances(wallets: list) -> list:
@@ -70,11 +75,13 @@ async def get_balances(wallets: list) -> list:
             # Concurrent calls hit the free-tier burst limit; only the first
             # succeeds and the rest return 0.  Sequential calls stay well within
             # the 5 req/s allowance.
-            usdt_bals = []
+            usdt_results = []
             for addr in addresses:
-                usdt_bals.append(await _fetch_usdt_balance(session, addr))
+                usdt_results.append(await _fetch_usdt_balance(session, addr))
 
-        usdt_map = dict(zip(addresses, usdt_bals))
+        # Split into balance and error maps
+        usdt_map       = {addr: bal for addr, (bal, _)   in zip(addresses, usdt_results)}
+        usdt_error_map = {addr: err for addr, (_, err)   in zip(addresses, usdt_results) if err}
 
         if eth_data["status"] == "1":
             eth_map = {
@@ -85,11 +92,13 @@ async def get_balances(wallets: list) -> list:
             for wallet in wallets:
                 wei  = eth_map.get(wallet["address"].lower())
                 usdt = usdt_map.get(wallet["address"], 0.0)
+                usdt_err = usdt_error_map.get(wallet["address"])
                 if wei is not None:
                     result.append({
                         **wallet,
                         "balance":      round(wei / 10 ** 18, 4),
                         "usdt_balance": usdt,
+                        "usdt_error":   usdt_err,   # None = OK; string = fetch failed
                         "error":        None,
                     })
                 else:
@@ -97,6 +106,7 @@ async def get_balances(wallets: list) -> list:
                         **wallet,
                         "balance":      0,
                         "usdt_balance": 0.0,
+                        "usdt_error":   usdt_err,
                         "error":        "Address not found in response",
                     })
             return result

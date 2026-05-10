@@ -22,14 +22,31 @@ const MASTER_CHART_COLOR = '#94A3B8';
 let ethUsdPrice   = null;
 let usdtUsdPrice  = null;   // live market rate; falls back to 1.0 if unavailable
 let pricesFetchedAt = null; // Date of last successful price fetch
+let gasPriceGwei = null;  // current "propose" gas price in Gwei (null = unavailable)
+// Fallback gas price (Gwei) used when Etherscan returns nothing usable.
+// 0.5 Gwei is a conservative mainnet estimate for low-traffic periods.
+const GAS_PRICE_FALLBACK_GWEI = 0.2;
+
+// Etherscan Gas Oracle — called directly from the frontend.
+// ProposeGasPrice is returned as a decimal string in Gwei (e.g. "0.206371891").
+const ETHERSCAN_GAS_URL =
+    'https://api.etherscan.io/v2/api' +
+    '?apikey=BIYI27MPE95E4FGMNFXAUQZ6CB51XDTBBV' +
+    '&chainid=1&module=gastracker&action=gasoracle';
 
 async function fetchPrices() {
-    try {
-        const res  = await fetch(
+    // Fetch token prices (CoinGecko) and gas price (Etherscan) in parallel.
+    const [priceResult, gasResult] = await Promise.allSettled([
+        fetch(
             'https://api.coingecko.com/api/v3/simple/price?ids=ethereum,tether&vs_currencies=usd',
             { signal: AbortSignal.timeout(8000) }
-        );
-        const json = await res.json();
+        ),
+        fetch(ETHERSCAN_GAS_URL, { signal: AbortSignal.timeout(8000) }),
+    ]);
+
+    // Token prices
+    try {
+        const json   = await priceResult.value.json();
         ethUsdPrice  = json?.ethereum?.usd ?? null;
         usdtUsdPrice = json?.tether?.usd   ?? null;
         pricesFetchedAt = new Date();
@@ -37,6 +54,21 @@ async function fetchPrices() {
         ethUsdPrice     = null;
         usdtUsdPrice    = null;
         pricesFetchedAt = null;
+    }
+
+    // Gas price — Etherscan returns ProposeGasPrice as a decimal string in Gwei.
+    // Falls back to GAS_PRICE_FALLBACK_GWEI when the API call fails or returns
+    // a non-positive value.
+    try {
+        const json    = await gasResult.value.json();
+        const propose = json?.status === '1'
+            ? parseFloat(json.result?.ProposeGasPrice)
+            : null;
+        gasPriceGwei  = (typeof propose === 'number' && isFinite(propose) && propose > 0)
+            ? propose
+            : GAS_PRICE_FALLBACK_GWEI;
+    } catch {
+        gasPriceGwei = GAS_PRICE_FALLBACK_GWEI;
     }
 }
 
@@ -49,8 +81,12 @@ function usdtRate() {
 
 // ── Rounding utilities ────────────────────────────────────
 // Use these instead of ad-hoc .toFixed() when storing numeric values.
-const r2 = v => Math.round(v * 100)   / 100;   // 2 d.p. — USD / USDT
-const r4 = v => Math.round(v * 10000) / 10000; // 4 d.p. — ETH
+const r2 = v => Math.round(v * 100)   / 100;   // 2 d.p. — USD / USDT amounts
+const r4 = v => Math.round(v * 10000) / 10000; // 4 d.p. — ETH wallet balances
+// r6 intentionally removed: it was applied prematurely to gas costs and
+// zeroed out values at low Gwei prices (0.005 Gwei × 21000 / 1e9 = 1.05e-7,
+// which r6 rounds to exactly 0). Gas computations stay as raw floats and are
+// rounded only at the presentation layer via fmtGasEth / fmtDollars.
 
 // ── Per-wallet USD metrics ────────────────────────────────
 // Returns { eth_usd, usdt_usd, total_usd } for one wallet.
@@ -125,6 +161,106 @@ function fmtUsdCompact(v) {
 function usdSpan(eth) {
     const v = fmtUsd(eth);
     return v ? `<span class="val-usd">${v}</span>` : '';
+}
+
+// ── Gas Estimation ────────────────────────────────────────
+// Gas limits by token — extend this map when new tokens are added.
+const GAS_LIMITS = {
+    ETH:  21_000,   // native ETH transfer
+    USDT: 65_000,   // ERC-20 transfer
+};
+
+
+// ── Gas Computation (pure — no rounding) ─────────────────────────
+// Returns raw IEEE 754 floats. Rounding happens ONLY in the presentation layer.
+
+// Gas cost for one transfer in ETH.
+// Uses the live gas price when available; falls back to GAS_PRICE_FALLBACK_GWEI
+// so estimation works even after a page reload (before fetchPrices runs).
+function gasInEth(token = 'ETH') {
+    const gwei = gasPriceGwei ?? GAS_PRICE_FALLBACK_GWEI;
+    return (gwei * (GAS_LIMITS[token] ?? GAS_LIMITS.ETH)) / 1e9;
+}
+
+// Gas cost for one transfer in USD. Null when ethUsdPrice is unavailable.
+function gasInUsd(token = 'ETH') {
+    const eth = gasInEth(token);
+    return (eth != null && ethUsdPrice != null) ? eth * ethUsdPrice : null;
+}
+
+// ── Gas Formatting (presentation layer only) ──────────────────────
+// fmtGasEth uses 8 decimal places — covers the full realistic Gwei range
+// (0.000000105 ETH at 0.005 Gwei up to 0.0065 ETH at 100 Gwei) without
+// losing the leading significant digit.
+// Gas USD uses the existing fmtDollars() at each call site.
+function fmtGasEth(eth) {
+    if (eth == null) return null;
+    return eth.toFixed(8) + ' ETH';
+}
+
+// Full gas analysis for a transfer list. Returns null only when there are no transfers.
+// gasInEth() handles missing gas price via GAS_PRICE_FALLBACK_GWEI internally.
+function analyzeGas(transfers) {
+    if (!transfers.length) return null;
+
+    // Pre-compute gas cost per token type — all transfers of the same token
+    // have identical gas costs, so there is no need to recompute inside the map.
+    const gasCostByToken = {};
+    for (const token of Object.keys(GAS_LIMITS)) {
+        gasCostByToken[token] = { eth: gasInEth(token), usd: gasInUsd(token) };
+    }
+    const getGas = token => gasCostByToken[token] ?? gasCostByToken['ETH'];
+
+    // Enrich each transfer with raw (unrounded) gas cost and viability flag.
+    // valueUsd is also kept raw so the uneconomical comparison is lossless.
+    const txGas = transfers.map(t => {
+        const token    = t.token || 'ETH';
+        const { eth: gasEth, usd: gasUsd } = getGas(token);
+        const valueUsd = (token === 'ETH' && ethUsdPrice)
+            ? t.amount * ethUsdPrice
+            : t.amount * usdtRate();
+        return { ...t, gasEth, gasUsd, valueUsd,
+                 uneconomical: gasUsd != null && gasUsd > valueUsd };
+    });
+
+    // Per-sender ETH requirement: gas + any outgoing ETH amount
+    const ethNeeded = {};
+    txGas.forEach(t => {
+        const addr = t.from.toLowerCase();
+        ethNeeded[addr] = (ethNeeded[addr] ?? 0) + (t.gasEth ?? 0);
+        if ((t.token || 'ETH') === 'ETH') ethNeeded[addr] += t.amount;
+    });
+
+    // Flag senders whose current ETH balance is insufficient.
+    // Store raw floats — rounding only happens when displayed.
+    const insufficientGas = {};
+    Object.entries(ethNeeded).forEach(([addr, needed]) => {
+        const w = loadedWallets.find(x => x.address.toLowerCase() === addr);
+        if (w && w.balance < needed) {
+            insufficientGas[addr] = {
+                name:      walletLabel(w) ?? shortAddr(w.address),
+                balance:   w.balance,           // raw
+                needed,                          // raw
+                shortfall: needed - w.balance,   // raw
+            };
+        }
+    });
+
+    // Totals: sum raw values — do not round intermediate sums.
+    const totalGasEth = txGas.reduce((s, t) => s + (t.gasEth ?? 0), 0);
+    // totalGasUsd stays null (not 0) when ethUsdPrice is unavailable, so
+    // the presentation layer can distinguish "no USD price" from "zero cost".
+    const usdValues   = txGas.map(t => t.gasUsd).filter(v => v != null);
+    const totalGasUsd = usdValues.length ? usdValues.reduce((s, v) => s + v, 0) : null;
+
+    return {
+        txGas,
+        totalGasEth,
+        totalGasUsd,
+        insufficientGas,
+        hasInsufficient: Object.keys(insufficientGas).length > 0,
+        hasUneconomical: txGas.some(t => t.uneconomical),
+    };
 }
 
 // ── Step Progress ─────────────────────────────────────────
@@ -429,6 +565,7 @@ function getLabelMapFromInputs() {
 function clearRebalanceResults() {
     lastPoolResult = null;
     lastPoolConfig = [];
+    gasPriceGwei   = null;
 
     ['results-view', 'after-view'].forEach(id => {
         document.getElementById(id)?.classList.add('hidden');
@@ -443,6 +580,12 @@ function clearRebalanceResults() {
     // Hide the execution-order note and infeasibility banner
     document.getElementById('transfer-exec-note')?.classList.add('hidden');
     document.getElementById('infeasible-msg')?.classList.add('hidden');
+
+    // Clear gas-specific elements
+    const gasAlerts = document.getElementById('gas-alerts');
+    const gasNotice = document.getElementById('gas-notice');
+    if (gasAlerts) gasAlerts.innerHTML = '';
+    if (gasNotice) gasNotice.innerHTML = '';
 
     // Clear the three after-view charts
     ['after-chart', 'after-usdt-chart', 'after-usd-chart'].forEach(id => {
@@ -1212,7 +1355,7 @@ async function runPool() {
         const response = await fetch('/api/pool', {
             method:  'POST',
             headers: { 'Content-Type': 'application/json' },
-            body:    JSON.stringify({ wallets })
+            body:    JSON.stringify({ wallets }),
         });
         const data = await response.json();
         if (!response.ok) { errorEl.textContent = 'Server error. Please try again.'; return; }
@@ -1258,7 +1401,20 @@ function displayResults(data) {
     const totalUSDT   = usdtXfers.reduce((s, t) => s + t.amount, 0);
     const affected    = new Set([...transfers.map(t => t.from), ...transfers.map(t => t.to)]).size;
 
-    // Stat cards
+    // Sort transfers and run gas analysis
+    const typeLabels = {
+        sub_to_sub:     { label: 'Sub → Sub',    css: 'type-sub-sub'    },
+        sub_to_master:  { label: 'Sub → Master', css: 'type-sub-master' },
+        master_to_sub:  { label: 'Master → Sub', css: 'type-master-sub' },
+    };
+    const typeOrder  = { sub_to_sub: 1, sub_to_master: 2, master_to_sub: 3 };
+    const tokenOrder = t => t.token === 'USDT' ? 1 : 0;
+    const sorted     = [...transfers].sort((a, b) =>
+        tokenOrder(a) - tokenOrder(b) || typeOrder[a.type] - typeOrder[b.type]
+    );
+    const gasAnalysis = analyzeGas(sorted);   // null when gas price unavailable
+
+    // Stat cards (gas stat added when available)
     document.getElementById('results-summary').innerHTML = `
         <div class="stat-card">
             <div class="stat-card-value">${transfers.length}</div>
@@ -1276,48 +1432,95 @@ function displayResults(data) {
         <div class="stat-card">
             <div class="stat-card-value">${affected || '—'}</div>
             <div class="stat-card-label">Wallets Affected</div>
-        </div>`;
+        </div>
+        ${gasAnalysis?.totalGasUsd != null ? `
+        <div class="stat-card">
+            <div class="stat-card-value">${fmtDollars(gasAnalysis.totalGasUsd)}</div>
+            <div class="stat-card-label">Est. Gas Fee</div>
+        </div>` : ''}`;
 
-    // Transfer table — sorted: ETH first, then USDT; within each: sub→sub, sub→master, master→sub
-    const typeLabels = {
-        sub_to_sub:     { label: 'Sub → Sub',    css: 'type-sub-sub'    },
-        sub_to_master:  { label: 'Sub → Master', css: 'type-sub-master' },
-        master_to_sub:  { label: 'Master → Sub', css: 'type-master-sub' },
-    };
-    const typeOrder = { sub_to_sub: 1, sub_to_master: 2, master_to_sub: 3 };
-    const tokenOrder = t => t.token === 'USDT' ? 1 : 0;
-    const sorted = [...transfers].sort((a, b) =>
-        tokenOrder(a) - tokenOrder(b) || typeOrder[a.type] - typeOrder[b.type]
-    );
+    // Gas validation alerts
+    const gasAlertsEl = document.getElementById('gas-alerts');
+    if (gasAlertsEl && gasAnalysis) {
+        let alertsHtml = '';
+        if (gasAnalysis.hasInsufficient) {
+            const rows = Object.values(gasAnalysis.insufficientGas)
+                .map(w => `<strong>${w.name}</strong> — ${w.balance.toFixed(4)} ETH available, `
+                         + `~${fmtGasEth(w.needed)} needed (gas shortfall: ${fmtGasEth(w.shortfall)})`)
+                .join('<br>');
+            alertsHtml += `<div class="alert alert-warning" style="margin-bottom:8px;">
+                ⛽ ETH balance insufficient to cover transfer + gas:<br>${rows}<br>
+                <small>For full-sweep wallets, reduce the transfer amount by the gas shortfall before executing.</small>
+            </div>`;
+        }
+        if (gasAnalysis.hasUneconomical) {
+            const n = gasAnalysis.txGas.filter(t => t.uneconomical).length;
+            alertsHtml += `<div class="alert alert-warning">
+                ⚠ ${n} transfer${n > 1 ? 's' : ''} where estimated gas exceeds the transfer value.
+                Review these transfers before executing.
+            </div>`;
+        }
+        gasAlertsEl.innerHTML = alertsHtml;
+    }
 
-    const tbody = document.getElementById('transfer-body');
-    tbody.innerHTML = '';
-
+    const tbody    = document.getElementById('transfer-body');
     const execNote = document.getElementById('transfer-exec-note');
+    tbody.innerHTML = '';
 
     if (sorted.length === 0) {
         if (execNote) execNote.classList.add('hidden');
         tbody.innerHTML = `
-            <tr class="empty-row"><td colspan="6">
+            <tr class="empty-row"><td colspan="7">
                 <div class="empty-icon">&#10003;</div>
                 <div class="empty-text">All wallets are already at target</div>
                 <div class="empty-sub">No transfers required.</div>
             </td></tr>`;
     } else {
         if (execNote) execNote.classList.remove('hidden');
-        sorted.forEach((t, i) => {
-            const tInfo  = typeLabels[t.type] || { label: t.type, css: '' };
-            const token  = t.token || 'ETH';
-            const row    = document.createElement('tr');
+
+        // Use gas-enriched rows when available, otherwise fall back to plain sorted
+        const rows = gasAnalysis ? gasAnalysis.txGas : sorted;
+        rows.forEach((t, i) => {
+            const tInfo = typeLabels[t.type] || { label: t.type, css: '' };
+            const token = t.token || 'ETH';
+
+            // Gas Est. cell — always show ETH cost when gas is available;
+            // USD shown as primary only when ethUsdPrice is loaded.
+            let gasCell;
+            if (!gasAnalysis) {
+                gasCell = `<span class="cell-na">—</span>`;
+            } else {
+                const badge = t.uneconomical ? ' <span class="gas-uneconomical-badge">⚠ uneconomical</span>' : '';
+                gasCell = t.gasUsd != null
+                    ? `${fmtDollars(t.gasUsd)}${badge}`
+                    : `<span class="cell-na">—</span>`;
+            }
+
+            const row = document.createElement('tr');
+            if (t.uneconomical) row.classList.add('row-uneconomical');
             row.innerHTML = `
                 <td class="cell-num">${i + 1}</td>
                 <td><span class="type-badge ${tInfo.css}">${tInfo.label}</span></td>
                 <td><span class="token-badge token-${token.toLowerCase()}">${token}</span></td>
                 <td>${walletIdHtmlByAddr(t.from)}</td>
                 <td>${walletIdHtmlByAddr(t.to)}</td>
-                <td class="cell-num">${t.amount.toFixed(4)} ${token}</td>`;
+                <td class="cell-num">${t.amount.toFixed(4)} ${token}</td>
+                <td class="cell-num gas-cell">${gasCell}</td>`;
             tbody.appendChild(row);
         });
+    }
+
+    // Gas disclaimer notice
+    const gasNoticeEl = document.getElementById('gas-notice');
+    if (gasNoticeEl) {
+        gasNoticeEl.innerHTML = gasAnalysis
+            ? `<div class="gas-notice">
+                ⛽ Gas estimates use the current proposed gas price
+                (~${gasPriceGwei ?? GAS_PRICE_FALLBACK_GWEI} Gwei${gasPriceGwei == null ? ' — fallback estimate' : ''}) and standard gas limits
+                (ETH: ${GAS_LIMITS.ETH.toLocaleString()} · ERC-20: ${GAS_LIMITS.USDT.toLocaleString()}).
+                Actual fees will vary with network conditions at execution time.
+               </div>`
+            : '';
     }
 
     // After-transfer portfolio view

@@ -12,7 +12,7 @@ import os
 
 sys.path.insert(0, os.path.dirname(__file__))
 
-from fetch_balances import get_balances
+from fetch_balances import get_balances, API_KEY, ETHERSCAN_URL
 from pooling import (
     calculate_surplus_deficit,
     validate_feasibility,
@@ -107,6 +107,7 @@ async def load_portfolio(payload: LoadRequest):
         "total_usdt": total_usdt,
         "errors":     [{"address": w["address"], "error": w["error"]} for w in errors],
     }
+
 
 
 @app.post("/api/pool")

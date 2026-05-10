@@ -176,6 +176,7 @@
                     <div id="results-summary" class="stat-cards"></div>
 
                     <h3 class="section-title">Transfers</h3>
+                    <div id="gas-alerts"></div>
                     <div id="transfer-exec-note" class="exec-note hidden">
                         <span class="exec-note-icon">&#9650;</span>
                         Execute transactions strictly in the order listed. Each transfer may depend on the preceding one having settled on-chain before the next is submitted.
@@ -189,10 +190,12 @@
                                 <th>From</th>
                                 <th>To</th>
                                 <th>Amount</th>
+                                <th>Gas Est.</th>
                             </tr>
                         </thead>
                         <tbody id="transfer-body"></tbody>
                     </table>
+                    <div id="gas-notice"></div>
 
                 </div>
             </div>
