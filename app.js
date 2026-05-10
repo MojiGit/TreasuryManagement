@@ -19,34 +19,23 @@ const MASTER_CHART_COLOR = '#94A3B8';
 
 // ── Pricing & Metrics ─────────────────────────────────────
 //
-let ethUsdPrice   = null;
-let usdtUsdPrice  = null;   // live market rate; falls back to 1.0 if unavailable
-let pricesFetchedAt = null; // Date of last successful price fetch
-let gasPriceGwei = null;  // current "propose" gas price in Gwei (null = unavailable)
-// Fallback gas price (Gwei) used when Etherscan returns nothing usable.
-// 0.5 Gwei is a conservative mainnet estimate for low-traffic periods.
-const GAS_PRICE_FALLBACK_GWEI = 0.2;
-
-// Etherscan Gas Oracle — called directly from the frontend.
-// ProposeGasPrice is returned as a decimal string in Gwei (e.g. "0.206371891").
-const ETHERSCAN_GAS_URL =
-    'https://api.etherscan.io/v2/api' +
-    '?apikey=BIYI27MPE95E4FGMNFXAUQZ6CB51XDTBBV' +
-    '&chainid=1&module=gastracker&action=gasoracle';
+let ethUsdPrice      = null;
+let usdtUsdPrice     = null;   // live market rate; falls back to 1.0 if unavailable
+let pricesFetchedAt  = null;   // Date of last successful token-price fetch
+let gasPriceGwei     = null;   // effective gas price in Gwei (base + tip, set when Run Pool fires)
+let gasPriceFetchedAt = null;  // Date of last successful gas-price fetch
+// Fallback effective gas price (Gwei) — base + tip — used when Etherscan is unavailable.
+// Mirrors the server-side formula: base ~0.5 Gwei + tip min(0.5, 1) = 1 Gwei effective.
+const GAS_PRICE_FALLBACK_GWEI = 1;
 
 async function fetchPrices() {
-    // Fetch token prices (CoinGecko) and gas price (Etherscan) in parallel.
-    const [priceResult, gasResult] = await Promise.allSettled([
-        fetch(
+    // Token prices only — gas price is fetched separately when Run Pool fires.
+    try {
+        const res    = await fetch(
             'https://api.coingecko.com/api/v3/simple/price?ids=ethereum,tether&vs_currencies=usd',
             { signal: AbortSignal.timeout(8000) }
-        ),
-        fetch(ETHERSCAN_GAS_URL, { signal: AbortSignal.timeout(8000) }),
-    ]);
-
-    // Token prices
-    try {
-        const json   = await priceResult.value.json();
+        );
+        const json   = await res.json();
         ethUsdPrice  = json?.ethereum?.usd ?? null;
         usdtUsdPrice = json?.tether?.usd   ?? null;
         pricesFetchedAt = new Date();
@@ -55,21 +44,23 @@ async function fetchPrices() {
         usdtUsdPrice    = null;
         pricesFetchedAt = null;
     }
+}
 
-    // Gas price — Etherscan returns ProposeGasPrice as a decimal string in Gwei.
-    // Falls back to GAS_PRICE_FALLBACK_GWEI when the API call fails or returns
-    // a non-positive value.
+// Fetch the effective gas price (base + tip, computed server-side).
+// Called only when Run Pool fires so the estimate reflects network
+// conditions at the moment the plan is generated.
+async function fetchGasPrice() {
     try {
-        const json    = await gasResult.value.json();
-        const propose = json?.status === '1'
-            ? parseFloat(json.result?.ProposeGasPrice)
-            : null;
+        const res     = await fetch('/api/gas', { signal: AbortSignal.timeout(8000) });
+        const json    = await res.json();
+        const propose = json?.propose;
         gasPriceGwei  = (typeof propose === 'number' && isFinite(propose) && propose > 0)
             ? propose
             : GAS_PRICE_FALLBACK_GWEI;
     } catch {
         gasPriceGwei = GAS_PRICE_FALLBACK_GWEI;
     }
+    gasPriceFetchedAt = new Date();  // stamp regardless of success/fallback
 }
 
 // ── USDT/USD rate ─────────────────────────────────────
@@ -166,8 +157,8 @@ function usdSpan(eth) {
 // ── Gas Estimation ────────────────────────────────────────
 // Gas limits by token — extend this map when new tokens are added.
 const GAS_LIMITS = {
-    ETH:  21_000,   // native ETH transfer
-    USDT: 65_000,   // ERC-20 transfer
+    ETH:  21000,   // native ETH transfer
+    USDT: 65000,   // ERC-20 transfer
 };
 
 
@@ -189,13 +180,22 @@ function gasInUsd(token = 'ETH') {
 }
 
 // ── Gas Formatting (presentation layer only) ──────────────────────
-// fmtGasEth uses 8 decimal places — covers the full realistic Gwei range
-// (0.000000105 ETH at 0.005 Gwei up to 0.0065 ETH at 100 Gwei) without
-// losing the leading significant digit.
-// Gas USD uses the existing fmtDollars() at each call site.
+
+// Format a raw ETH gas cost. 8 d.p. covers the full realistic Gwei range.
 function fmtGasEth(eth) {
     if (eth == null) return null;
     return eth.toFixed(8) + ' ETH';
+}
+
+// Format a gas cost in USD with enough precision to show sub-cent values.
+// fmtDollars rounds to 2 d.p., making $0.0109 appear as $0.01 (looks like zero).
+// At current mainnet gas prices (~0.2 Gwei) each transfer costs ~$0.01-$0.04,
+// so 4 d.p. is needed to show a meaningful non-zero value.
+function fmtGasUsd(usd) {
+    if (usd == null) return null;
+    if (usd < 0.01)  return '$' + usd.toFixed(4);  // e.g. $0.0011
+    if (usd < 0.10)  return '$' + usd.toFixed(3);  // e.g. $0.011
+    return fmtDollars(usd);                          // e.g. $1.23
 }
 
 // Full gas analysis for a transfer list. Returns null only when there are no transfers.
@@ -261,6 +261,18 @@ function analyzeGas(transfers) {
         hasInsufficient: Object.keys(insufficientGas).length > 0,
         hasUneconomical: txGas.some(t => t.uneconomical),
     };
+}
+
+// Shared timestamp badge for the bottom-of-card legends.
+// Returns a <span class="pricing-legend-ts"> string, or '' when date is null.
+function fmtLegendTimestamp(date) {
+    if (!date) return '';
+    const hh     = String(date.getHours()).padStart(2, '0');
+    const mm     = String(date.getMinutes()).padStart(2, '0');
+    const ss     = String(date.getSeconds()).padStart(2, '0');
+    const ageMin = Math.floor((Date.now() - date.getTime()) / 60000);
+    const age    = ageMin === 0 ? 'just now' : `${ageMin} min ago`;
+    return `<span class="pricing-legend-ts">fetched ${hh}:${mm}:${ss} — ${age}</span>`;
 }
 
 // ── Step Progress ─────────────────────────────────────────
@@ -409,9 +421,9 @@ function restoreDraft() {
     }
 
     // ── Restore prices (must come before displayPortfolio) ─
-    ethUsdPrice     = draft.ethUsdPrice  ?? null;
-    usdtUsdPrice    = draft.usdtUsdPrice ?? null;
-    // Deserialise timestamp so the staleness indicator recalculates age correctly
+    ethUsdPrice     = draft.ethUsdPrice   ?? null;
+    usdtUsdPrice    = draft.usdtUsdPrice  ?? null;
+    // Gas price is not restored from draft — it is fetched fresh when Run Pool fires.
     pricesFetchedAt = draft.pricesFetchedAt ? new Date(draft.pricesFetchedAt) : null;
 
     // ── Step 2: restore portfolio view ───────────────────
@@ -565,7 +577,8 @@ function getLabelMapFromInputs() {
 function clearRebalanceResults() {
     lastPoolResult = null;
     lastPoolConfig = [];
-    gasPriceGwei   = null;
+    gasPriceGwei      = null;
+    gasPriceFetchedAt = null;
 
     ['results-view', 'after-view'].forEach(id => {
         document.getElementById(id)?.classList.add('hidden');
@@ -582,10 +595,12 @@ function clearRebalanceResults() {
     document.getElementById('infeasible-msg')?.classList.add('hidden');
 
     // Clear gas-specific elements
-    const gasAlerts = document.getElementById('gas-alerts');
-    const gasNotice = document.getElementById('gas-notice');
+    const gasAlerts  = document.getElementById('gas-alerts');
+    const gasLegend  = document.getElementById('gas-legend');
+    const gasNotice  = document.getElementById('gas-notice');
     if (gasAlerts) gasAlerts.innerHTML = '';
-    if (gasNotice) gasNotice.innerHTML = '';
+    if (gasLegend) { gasLegend.innerHTML = ''; gasLegend.classList.add('hidden'); }
+    if (gasNotice) { gasNotice.innerHTML = ''; gasNotice.classList.add('hidden'); }
 
     // Clear the three after-view charts
     ['after-chart', 'after-usdt-chart', 'after-usd-chart'].forEach(id => {
@@ -1005,16 +1020,7 @@ function displayPortfolio(data) {
         ? usdtUsdPrice.toFixed(4)
         : '1.0000 (peg)';
 
-    // Format capture time and compute staleness in minutes
-    let timestampHtml = '';
-    if (pricesFetchedAt) {
-        const hh   = String(pricesFetchedAt.getHours()).padStart(2, '0');
-        const mm   = String(pricesFetchedAt.getMinutes()).padStart(2, '0');
-        const ss   = String(pricesFetchedAt.getSeconds()).padStart(2, '0');
-        const ageMin = Math.floor((Date.now() - pricesFetchedAt.getTime()) / 60000);
-        const ageTxt = ageMin === 0 ? 'just now' : `${ageMin} min ago`;
-        timestampHtml = `<span class="pricing-legend-ts">fetched ${hh}:${mm}:${ss} — ${ageTxt}</span>`;
-    }
+    const timestampHtml = fmtLegendTimestamp(pricesFetchedAt);
 
     legendEl.innerHTML = `
         <span class="pricing-legend-label">Pricing basis</span>
@@ -1352,11 +1358,14 @@ async function runPool() {
     setLoading(poolBtn, true);
 
     try {
-        const response = await fetch('/api/pool', {
-            method:  'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body:    JSON.stringify({ wallets }),
-        });
+        const [response] = await Promise.all([
+            fetch('/api/pool', {
+                method:  'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body:    JSON.stringify({ wallets }),
+            }),
+            fetchGasPrice(),   // refresh gas price in parallel — no extra latency
+        ]);
         const data = await response.json();
         if (!response.ok) { errorEl.textContent = 'Server error. Please try again.'; return; }
         lastPoolResult = data;
@@ -1435,7 +1444,7 @@ function displayResults(data) {
         </div>
         ${gasAnalysis?.totalGasUsd != null ? `
         <div class="stat-card">
-            <div class="stat-card-value">${fmtDollars(gasAnalysis.totalGasUsd)}</div>
+            <div class="stat-card-value">${fmtGasUsd(gasAnalysis.totalGasUsd)}</div>
             <div class="stat-card-label">Est. Gas Fee</div>
         </div>` : ''}`;
 
@@ -1492,7 +1501,7 @@ function displayResults(data) {
             } else {
                 const badge = t.uneconomical ? ' <span class="gas-uneconomical-badge">⚠ uneconomical</span>' : '';
                 gasCell = t.gasUsd != null
-                    ? `${fmtDollars(t.gasUsd)}${badge}`
+                    ? `${fmtGasUsd(t.gasUsd)}${badge}`
                     : `<span class="cell-na">—</span>`;
             }
 
@@ -1510,17 +1519,46 @@ function displayResults(data) {
         });
     }
 
+    // Gas legend — pricing-basis style with gas price, limits and timestamp
+    const gasLegendEl = document.getElementById('gas-legend');
+    if (gasLegendEl) {
+        if (gasAnalysis) {
+            const liveGwei   = gasPriceGwei ?? GAS_PRICE_FALLBACK_GWEI;
+            const isFallback = gasPriceGwei == null;
+            gasLegendEl.innerHTML = `
+                <span class="pricing-legend-label">Gas basis</span>
+                <span class="pricing-legend-item">
+                    <span class="pricing-legend-token">Gas Price</span>
+                    <span class="pricing-legend-value">${liveGwei.toFixed(3)} Gwei${isFallback ? ' (fallback)' : ''}</span>
+                </span>
+                <span class="pricing-legend-item">
+                    <span class="pricing-legend-token">ETH tx</span>
+                    <span class="pricing-legend-value">${GAS_LIMITS.ETH.toLocaleString()} gas</span>
+                </span>
+                <span class="pricing-legend-item">
+                    <span class="pricing-legend-token">ERC-20 tx</span>
+                    <span class="pricing-legend-value">${GAS_LIMITS.USDT.toLocaleString()} gas</span>
+                </span>
+                <span class="pricing-legend-source">Etherscan</span>
+                ${fmtLegendTimestamp(gasPriceFetchedAt)}`;
+            gasLegendEl.classList.remove('hidden');
+        } else {
+            gasLegendEl.innerHTML = '';
+            gasLegendEl.classList.add('hidden');
+        }
+    }
+
     // Gas disclaimer notice
     const gasNoticeEl = document.getElementById('gas-notice');
     if (gasNoticeEl) {
-        gasNoticeEl.innerHTML = gasAnalysis
-            ? `<div class="gas-notice">
-                ⛽ Gas estimates use the current proposed gas price
-                (~${gasPriceGwei ?? GAS_PRICE_FALLBACK_GWEI} Gwei${gasPriceGwei == null ? ' — fallback estimate' : ''}) and standard gas limits
-                (ETH: ${GAS_LIMITS.ETH.toLocaleString()} · ERC-20: ${GAS_LIMITS.USDT.toLocaleString()}).
-                Actual fees will vary with network conditions at execution time.
-               </div>`
-            : '';
+        if (gasAnalysis) {
+            gasNoticeEl.innerHTML =
+                '⛽ Gas fee estimates are indicative only and may vary based on network usage at execution time.';
+            gasNoticeEl.classList.remove('hidden');
+        } else {
+            gasNoticeEl.innerHTML = '';
+            gasNoticeEl.classList.add('hidden');
+        }
     }
 
     // After-transfer portfolio view

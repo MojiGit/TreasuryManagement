@@ -7,6 +7,7 @@ from fastapi.staticfiles import StaticFiles
 from fastapi.templating import Jinja2Templates
 from pydantic import BaseModel
 from typing import List, Optional
+import aiohttp
 import sys
 import os
 
@@ -108,6 +109,38 @@ async def load_portfolio(payload: LoadRequest):
         "errors":     [{"address": w["address"], "error": w["error"]} for w in errors],
     }
 
+
+
+@app.get("/api/gas")
+async def gas_oracle():
+    """
+    Proxy to Etherscan Gas Tracker — must run server-side because Etherscan
+    does not include CORS headers, so direct browser requests are blocked.
+    Returns ProposeGasPrice in Gwei as a float.
+    """
+    params = {
+        "chainid": 1,
+        "module":  "gastracker",
+        "action":  "gasoracle",
+        "apikey":  API_KEY,
+    }
+    try:
+        async with aiohttp.ClientSession() as session:
+            async with session.get(
+                ETHERSCAN_URL, params=params,
+                timeout=aiohttp.ClientTimeout(total=8)
+            ) as resp:
+                data = await resp.json()
+        if data.get("status") == "1":
+            r        = data["result"]
+            propose  = float(r["ProposeGasPrice"])
+            # Add a priority fee (tip) equal to the base fee, capped at 1 Gwei.
+            # Kept server-side so the frontend receives only the effective price.
+            tip      = min(propose, 1.0)
+            return {"propose": round(propose + tip, 9)}
+    except Exception:
+        pass
+    return {"propose": None}
 
 
 @app.post("/api/pool")
