@@ -223,26 +223,52 @@ function analyzeGas(transfers) {
                  uneconomical: gasUsd != null && gasUsd > valueUsd };
     });
 
-    // Per-sender ETH requirement: gas + any outgoing ETH amount
-    const ethNeeded = {};
-    txGas.forEach(t => {
-        const addr = t.from.toLowerCase();
-        ethNeeded[addr] = (ethNeeded[addr] ?? 0) + (t.gasEth ?? 0);
-        if ((t.token || 'ETH') === 'ETH') ethNeeded[addr] += t.amount;
+    // Sequential simulation: walk transfers in execution order, maintaining a
+    // running balance per address so inbound ETH credits downstream senders.
+    const simBalance = {};
+    loadedWallets.forEach(w => {
+        simBalance[w.address.toLowerCase()] = w.balance;
     });
 
-    // Flag senders whose current ETH balance is insufficient.
+    // Flag senders whose simulated balance goes negative at any execution step.
     // Store raw floats — rounding only happens when displayed.
     const insufficientGas = {};
-    Object.entries(ethNeeded).forEach(([addr, needed]) => {
-        const w = loadedWallets.find(x => x.address.toLowerCase() === addr);
-        if (w && w.balance < needed) {
-            insufficientGas[addr] = {
-                name:      walletLabel(w) ?? shortAddr(w.address),
-                balance:   w.balance,           // raw
-                needed,                          // raw
-                shortfall: needed - w.balance,   // raw
+    txGas.forEach(t => {
+        const token      = t.token || 'ETH';
+        const senderAddr = t.from.toLowerCase();
+
+        if (simBalance[senderAddr] === undefined) simBalance[senderAddr] = 0;
+
+        const gasCost  = t.gasEth ?? 0;
+        const afterGas = simBalance[senderAddr] - gasCost;
+
+        if (afterGas < 0) {
+            // Can't cover gas at all — genuine deficiency.
+            simBalance[senderAddr] = afterGas;
+            const w        = loadedWallets.find(x => x.address.toLowerCase() === senderAddr);
+            const shortfall = -afterGas;
+            insufficientGas[senderAddr] = {
+                name:      w ? (walletLabel(w) ?? shortAddr(w.address)) : shortAddr(t.from),
+                balance:   w ? w.balance : 0,
+                needed:    (w ? w.balance : 0) + shortfall,
+                shortfall,
             };
+        } else if (token === 'ETH') {
+            // Gas is covered. For sweep-style transfers the planned amount may
+            // equal the wallet's full balance — cap to what remains after gas
+            // so the wallet lands at zero rather than triggering a false alarm.
+            const effectiveAmount    = Math.min(t.amount, afterGas);
+            simBalance[senderAddr]   = afterGas - effectiveAmount;
+
+            // Credit the receiver immediately so downstream senders benefit.
+            if (t.to) {
+                const receiverAddr = t.to.toLowerCase();
+                if (simBalance[receiverAddr] === undefined) simBalance[receiverAddr] = 0;
+                simBalance[receiverAddr] += effectiveAmount;
+            }
+        } else {
+            // USDT: only gas is deducted from ETH balance.
+            simBalance[senderAddr] = afterGas;
         }
     });
 
