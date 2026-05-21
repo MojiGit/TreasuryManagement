@@ -71,7 +71,11 @@
         </div>
     </header>
 
-    <!-- ── Step Progress ── -->
+    <!-- PHASE-1C: Progress indicator retired. The sidebar
+         navigation replaces linear step progression.
+         This block may be removed permanently in a later
+         cleanup phase. -->
+    <!--
     <div class="steps-track">
         <div class="steps-inner">
             <div class="step-item active" id="step-1">
@@ -100,184 +104,209 @@
             </div>
         </div>
     </div>
+    -->
 
     <!-- ── Main ── -->
     <main class="main-content">
 
-        <!-- Step 1: Wallet Setup -->
-        <section id="wallet-setup" class="card">
-            <div class="card-header">
-                <div>
-                    <h2>Wallet Setup</h2>
-                    <p class="card-desc">Enter your master wallet and up to 15 subwallets.</p>
-                </div>
-            </div>
-            <div class="card-body">
-                <div class="setup-grid">
+        <!-- ── Tab: Overview ── -->
+        <section class="tab-panel is-active" id="tab-overview"
+                 role="tabpanel" aria-labelledby="nav-overview">
+
+            <!-- Step 2: Portfolio View -->
+            <section id="portfolio-view" class="card">
+                <div class="card-header">
                     <div>
-                        <label class="field-label">Master Wallet</label>
-                        <p class="field-hint">Acts as the hub — receives surplus or funds deficits.</p>
-                        <input type="text" id="master-address"
-                            placeholder="0x..." class="address-input"
-                            autocomplete="off" spellcheck="false" />
+                        <h2>Live Portfolio</h2>
+                        <p class="card-desc">Real-time ETH balances from Etherscan.</p>
                     </div>
-                    <div>
-                        <label class="field-label">Subwallets</label>
-                        <p class="field-hint">Up to 15 sub-accounts supported.</p>
-                        <div id="subwallet-list"></div>
-                        <button id="add-subwallet" class="btn-add" title="Maximum 15 subwallets">+ Add Subwallet</button>
-                        <span id="subwallet-counter"></span>
-                    </div>
-                </div>
-                <div class="card-actions">
-                    <button id="load-btn" class="btn-primary">
-                        <span class="btn-text">Load Portfolio</span>
+                    <button id="refresh-btn" class="btn-secondary" onclick="refreshPortfolio()">
+                        <span class="btn-text">↺ Refresh</span>
                         <span class="btn-spinner hidden"></span>
                     </button>
-                    <p id="load-error" class="error-msg"></p>
                 </div>
-            </div>
+                <div class="card-body">
+                    <div id="master-overview" class="master-overview hidden"></div>
+                    <div class="chart-panel">
+                        <div class="chart-item">
+                            <svg id="portfolio-chart" viewBox="0 0 200 200"
+                                xmlns="http://www.w3.org/2000/svg"></svg>
+                        </div>
+                        <div class="chart-item">
+                            <svg id="portfolio-usdt-chart" viewBox="0 0 200 200"
+                                xmlns="http://www.w3.org/2000/svg"></svg>
+                        </div>
+                        <div class="chart-item">
+                            <svg id="portfolio-usd-chart" viewBox="0 0 200 200"
+                                xmlns="http://www.w3.org/2000/svg"></svg>
+                        </div>
+                    </div>
+                    <div id="sub-accounts-panel" class="accounts-panel"></div>
+                    <div id="portfolio-pricing-legend" class="pricing-legend hidden"></div>
+                </div>
+
+            </section>
+
+            <!-- Step 5: After Transfer Analysis -->
+            <section id="after-view" class="card">
+                <div class="card-header">
+                    <div>
+                        <h2>After Transfer Analysis</h2>
+                        <p class="card-desc">Projected portfolio state after executing all transfers.</p>
+                    </div>
+                </div>
+                <div class="card-body">
+                    <div id="after-master-overview" class="master-overview after-master"></div>
+                    <div class="portfolio-body">
+                        <div id="after-sub-accounts" class="accounts-panel"></div>
+                        <div class="chart-panel-col">
+                            <div class="chart-item">
+                                <svg id="after-chart" viewBox="0 0 200 200"
+                                    xmlns="http://www.w3.org/2000/svg"></svg>
+                            </div>
+                            <div class="chart-item">
+                                <svg id="after-usdt-chart" viewBox="0 0 200 200"
+                                    xmlns="http://www.w3.org/2000/svg"></svg>
+                            </div>
+                            <div class="chart-item">
+                                <svg id="after-usd-chart" viewBox="0 0 200 200"
+                                    xmlns="http://www.w3.org/2000/svg"></svg>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </section>
+
         </section>
 
-        <!-- Step 2: Portfolio View -->
-        <section id="portfolio-view" class="card hidden">
-            <div class="card-header">
-                <div>
-                    <h2>Live Portfolio</h2>
-                    <p class="card-desc">Real-time ETH balances from Etherscan.</p>
-                </div>
-                <button id="refresh-btn" class="btn-secondary" onclick="refreshPortfolio()">
-                    <span class="btn-text">↺ Refresh</span>
-                    <span class="btn-spinner hidden"></span>
-                </button>
-            </div>
-            <div class="card-body">
-                <div id="master-overview" class="master-overview hidden"></div>
-                <div class="chart-panel">
-                    <div class="chart-item">
-                        <svg id="portfolio-chart" viewBox="0 0 200 200"
-                            xmlns="http://www.w3.org/2000/svg"></svg>
-                    </div>
-                    <div class="chart-item">
-                        <svg id="portfolio-usdt-chart" viewBox="0 0 200 200"
-                            xmlns="http://www.w3.org/2000/svg"></svg>
-                    </div>
-                    <div class="chart-item">
-                        <svg id="portfolio-usd-chart" viewBox="0 0 200 200"
-                            xmlns="http://www.w3.org/2000/svg"></svg>
+        <!-- ── Tab: Wallets ── -->
+        <section class="tab-panel" id="tab-wallets"
+                 role="tabpanel" aria-labelledby="nav-wallets">
+
+            <!-- Step 1: Wallet Setup -->
+            <section id="wallet-setup" class="card">
+                <div class="card-header">
+                    <div>
+                        <h2>Wallet Setup</h2>
+                        <p class="card-desc">Enter your master wallet and up to 15 subwallets.</p>
                     </div>
                 </div>
-                <div id="sub-accounts-panel" class="accounts-panel"></div>
-                <div id="portfolio-pricing-legend" class="pricing-legend hidden"></div>
-            </div>
+                <div class="card-body">
+                    <div class="setup-grid">
+                        <div>
+                            <label class="field-label">Master Wallet</label>
+                            <p class="field-hint">Acts as the hub — receives surplus or funds deficits.</p>
+                            <input type="text" id="master-address"
+                                placeholder="0x..." class="address-input"
+                                autocomplete="off" spellcheck="false" />
+                        </div>
+                        <div>
+                            <label class="field-label">Subwallets</label>
+                            <p class="field-hint">Up to 15 sub-accounts supported.</p>
+                            <div id="subwallet-list"></div>
+                            <button id="add-subwallet" class="btn-add" title="Maximum 15 subwallets">+ Add Subwallet</button>
+                            <span id="subwallet-counter"></span>
+                        </div>
+                    </div>
+                    <div class="card-actions">
+                        <button id="load-btn" class="btn-primary">
+                            <span class="btn-text">Load Portfolio</span>
+                            <span class="btn-spinner hidden"></span>
+                        </button>
+                        <p id="load-error" class="error-msg"></p>
+                    </div>
+                </div>
+            </section>
 
         </section>
 
-        <!-- Step 3: Pooling Setup -->
-        <section id="pooling-setup" class="card hidden">
-            <div class="card-header">
-                <div>
-                    <h2>Cash Pooling Setup</h2>
-                    <p class="card-desc">Configure the target balance for each wallet.</p>
-                </div>
-            </div>
-            <div class="card-body">
-                <table class="data-table" id="pooling-table">
-                    <thead>
-                        <tr>
-                            <th>Address</th>
-                            <th>Role</th>
-                            <th>ETH Balance</th>
-                            <th>ETH Config</th>
-                            <th>USDT Balance</th>
-                            <th>USDT Config</th>
-                        </tr>
-                    </thead>
-                    <tbody id="pooling-body"></tbody>
-                </table>
-                <div class="card-actions">
-                    <button id="pool-btn" class="btn-primary btn-accent">
-                        <span class="btn-text">Run Pool</span>
-                        <span class="btn-spinner hidden"></span>
-                    </button>
-                    <p id="pool-error" class="error-msg"></p>
-                </div>
-            </div>
-        </section>
+        <!-- ── Tab: Targets ── -->
+        <section class="tab-panel" id="tab-targets"
+                 role="tabpanel" aria-labelledby="nav-targets">
 
-        <!-- Step 4: Results -->
-        <section id="results-view" class="card hidden">
-            <div class="card-header">
-                <div>
-                    <h2>Transfer Plan</h2>
-                    <p class="card-desc">Review each transfer and execute manually.</p>
-                </div>
-                <div style="display:flex;gap:8px;flex-shrink:0;">
-                    <button id="pdf-btn" class="btn-primary btn-accent" onclick="generatePDF()">&#x21E9; PDF Report</button>
-                    <button id="copy-btn" class="btn-secondary">Copy Plan</button>
-                </div>
-            </div>
-            <div class="card-body">
-                <div id="infeasible-msg" class="alert alert-error hidden"></div>
-
-                <div id="transfer-results">
-                    <div id="results-summary" class="stat-cards"></div>
-
-                    <h3 class="section-title">Transfers</h3>
-                    <div id="gas-alerts"></div>
-                    <div id="transfer-exec-note" class="exec-note hidden">
-                        <span class="exec-note-icon">&#9650;</span>
-                        Execute transactions strictly in the order listed. Each transfer may depend on the preceding one having settled on-chain before the next is submitted.
+            <!-- Step 3: Pooling Setup -->
+            <section id="pooling-setup" class="card">
+                <div class="card-header">
+                    <div>
+                        <h2>Cash Pooling Setup</h2>
+                        <p class="card-desc">Configure the target balance for each wallet.</p>
                     </div>
-                    <table class="data-table" id="transfer-table">
+                </div>
+                <div class="card-body">
+                    <table class="data-table" id="pooling-table">
                         <thead>
                             <tr>
-                                <th>#</th>
-                                <th>Type</th>
-                                <th>Token</th>
-                                <th>From</th>
-                                <th>To</th>
-                                <th>Amount</th>
-                                <th>Gas Est.</th>
+                                <th>Address</th>
+                                <th>Role</th>
+                                <th>ETH Balance</th>
+                                <th>ETH Config</th>
+                                <th>USDT Balance</th>
+                                <th>USDT Config</th>
                             </tr>
                         </thead>
-                        <tbody id="transfer-body"></tbody>
+                        <tbody id="pooling-body"></tbody>
                     </table>
-                    <div id="gas-legend" class="pricing-legend hidden"></div>
-                    <div id="gas-notice" class="gas-notice hidden"></div>
-
-                </div>
-            </div>
-        </section>
-
-        <!-- Step 5: After Transfer Analysis -->
-        <section id="after-view" class="card hidden">
-            <div class="card-header">
-                <div>
-                    <h2>After Transfer Analysis</h2>
-                    <p class="card-desc">Projected portfolio state after executing all transfers.</p>
-                </div>
-            </div>
-            <div class="card-body">
-                <div id="after-master-overview" class="master-overview after-master"></div>
-                <div class="portfolio-body">
-                    <div id="after-sub-accounts" class="accounts-panel"></div>
-                    <div class="chart-panel-col">
-                        <div class="chart-item">
-                            <svg id="after-chart" viewBox="0 0 200 200"
-                                xmlns="http://www.w3.org/2000/svg"></svg>
-                        </div>
-                        <div class="chart-item">
-                            <svg id="after-usdt-chart" viewBox="0 0 200 200"
-                                xmlns="http://www.w3.org/2000/svg"></svg>
-                        </div>
-                        <div class="chart-item">
-                            <svg id="after-usd-chart" viewBox="0 0 200 200"
-                                xmlns="http://www.w3.org/2000/svg"></svg>
-                        </div>
+                    <div class="card-actions">
+                        <button id="pool-btn" class="btn-primary btn-accent">
+                            <span class="btn-text">Run Pool</span>
+                            <span class="btn-spinner hidden"></span>
+                        </button>
+                        <p id="pool-error" class="error-msg"></p>
                     </div>
                 </div>
-            </div>
+            </section>
+
+        </section>
+
+        <!-- ── Tab: Rebalance ── -->
+        <section class="tab-panel" id="tab-rebalance"
+                 role="tabpanel" aria-labelledby="nav-rebalance">
+
+            <!-- Step 4: Results -->
+            <section id="results-view" class="card">
+                <div class="card-header">
+                    <div>
+                        <h2>Transfer Plan</h2>
+                        <p class="card-desc">Review each transfer and execute manually.</p>
+                    </div>
+                    <div style="display:flex;gap:8px;flex-shrink:0;">
+                        <button id="pdf-btn" class="btn-primary btn-accent" onclick="generatePDF()">&#x21E9; PDF Report</button>
+                        <button id="copy-btn" class="btn-secondary">Copy Plan</button>
+                    </div>
+                </div>
+                <div class="card-body">
+                    <div id="infeasible-msg" class="alert alert-error hidden"></div>
+
+                    <div id="transfer-results">
+                        <div id="results-summary" class="stat-cards"></div>
+
+                        <h3 class="section-title">Transfers</h3>
+                        <div id="gas-alerts"></div>
+                        <div id="transfer-exec-note" class="exec-note hidden">
+                            <span class="exec-note-icon">&#9650;</span>
+                            Execute transactions strictly in the order listed. Each transfer may depend on the preceding one having settled on-chain before the next is submitted.
+                        </div>
+                        <table class="data-table" id="transfer-table">
+                            <thead>
+                                <tr>
+                                    <th>#</th>
+                                    <th>Type</th>
+                                    <th>Token</th>
+                                    <th>From</th>
+                                    <th>To</th>
+                                    <th>Amount</th>
+                                    <th>Gas Est.</th>
+                                </tr>
+                            </thead>
+                            <tbody id="transfer-body"></tbody>
+                        </table>
+                        <div id="gas-legend" class="pricing-legend hidden"></div>
+                        <div id="gas-notice" class="gas-notice hidden"></div>
+
+                    </div>
+                </div>
+            </section>
+
         </section>
 
     </main>

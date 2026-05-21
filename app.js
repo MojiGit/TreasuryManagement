@@ -357,13 +357,11 @@ function fmtLegendTimestamp(date) {
 
 // ── Step Progress ─────────────────────────────────────────
 function setStep(active) {
-    for (let i = 1; i <= 5; i++) {
-        const el = document.getElementById(`step-${i}`);
-        if (!el) continue;
-        el.classList.remove('active', 'done');
-        if (i === active)    el.classList.add('active');
-        else if (i < active) el.classList.add('done');
-    }
+    // PHASE-1C: No-op. Linear step progression replaced
+    // by sidebar tab navigation. Existing callers remain
+    // in place but do nothing. Safe to remove in later
+    // cleanup phase.
+    return;
 }
 
 function setLoading(btn, loading) {

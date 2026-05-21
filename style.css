@@ -1570,3 +1570,10 @@ body {
   font-weight: 500;
   font-family: 'Geist Mono', ui-monospace, monospace;
 }
+
+/* ══════════════════════════════════════════════════════════
+   LEDGERLINE — Phase 1C: Tab panel visibility
+   ══════════════════════════════════════════════════════════ */
+
+.tab-panel              { display: none; }
+.tab-panel.is-active    { display: block; }
