@@ -30,6 +30,58 @@ let planStalenessInterval = null; // setInterval handle for plan-age staleness t
 // Mirrors the server-side formula: base ~0.5 Gwei + tip min(0.5, 1) = 1 Gwei effective.
 const GAS_PRICE_FALLBACK_GWEI = 1;
 
+// ═══════════════════════════════════════════════════════════
+// LEDGERLINE — Phase 1B: Tab navigation + sidebar feed
+// Tab-panel elements do not exist yet (added in Phase 1C).
+// Class toggles on missing elements are safe no-ops.
+// ═══════════════════════════════════════════════════════════
+
+const TAB_IDS = ['overview', 'wallets', 'targets', 'rebalance'];
+const ACTIVE_TAB_KEY = 'ct_active_tab';
+
+function activateTab(tabId) {
+  if (!TAB_IDS.includes(tabId)) return;
+  TAB_IDS.forEach(id => {
+    const panel = document.getElementById(`tab-${id}`);
+    const navBtn = document.querySelector(
+      `.sidebar-nav-item[data-tab="${id}"]`
+    );
+    if (panel) panel.classList.toggle('is-active', id === tabId);
+    if (navBtn) {
+      navBtn.classList.toggle('is-active', id === tabId);
+      navBtn.setAttribute('aria-selected', id === tabId ? 'true' : 'false');
+    }
+  });
+  try { localStorage.setItem(ACTIVE_TAB_KEY, tabId); } catch (e) {}
+}
+
+function initTabs() {
+  document.querySelectorAll('.sidebar-nav-item[data-tab]').forEach(btn => {
+    btn.addEventListener('click', () => activateTab(btn.dataset.tab));
+  });
+  let initial = 'overview';
+  try {
+    const saved = localStorage.getItem(ACTIVE_TAB_KEY);
+    if (saved && TAB_IDS.includes(saved)) initial = saved;
+  } catch (e) {}
+  activateTab(initial);
+}
+
+function _twoDigit(n) { return String(n).padStart(2, '0'); }
+function _hhmm(d) { return `${_twoDigit(d.getHours())}:${_twoDigit(d.getMinutes())}`; }
+
+function updateFeedDraftSaved() {
+  const el = document.getElementById('feedDraftStatus');
+  if (!el) return;
+  el.textContent = `saved ${_hhmm(new Date())}`;
+}
+
+function updateFeedLastRun() {
+  const el = document.getElementById('feedLastRun');
+  if (!el) return;
+  el.textContent = _hhmm(new Date());
+}
+
 async function fetchPrices() {
     // Token prices only — gas price is fetched separately when Run Pool fires.
     try {
@@ -397,6 +449,7 @@ function saveDraft() {
     } catch (e) {
         console.warn('[CryptoTreasury] Draft save failed:', e);
     }
+    updateFeedDraftSaved();
 }
 
 function _loadRawDraft() {
@@ -1446,6 +1499,7 @@ async function runPool() {
         lastPoolResult  = data;
         planGeneratedAt = new Date();
         displayResults(data);
+        updateFeedLastRun();
     } catch (err) {
         errorEl.textContent = 'Could not connect to server.';
     } finally {
@@ -2369,3 +2423,7 @@ function copyPlan() {
         setTimeout(() => btn.textContent = 'Copy Plan', 2000);
     });
 }
+
+// ── Phase 1B: Tab initialization ──────────────────────────
+// Case (c): no DOMContentLoaded handler existed — adding one here.
+document.addEventListener('DOMContentLoaded', () => { initTabs(); });
