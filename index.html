@@ -9,6 +9,52 @@
     <link rel="stylesheet" href="./static/style.css">
 </head>
 <body>
+<div class="app-shell">
+    <aside class="app-sidebar" id="appSidebar">
+
+        <!-- brand -->
+        <div class="sidebar-brand">
+            <div class="sidebar-brand-mark">C</div>
+            <div class="sidebar-brand-text">
+                <div class="sidebar-brand-name">CryptoTreasury</div>
+                <div class="sidebar-brand-sub">Treasury workspace</div>
+            </div>
+        </div>
+
+        <!-- nav (inert in Phase 1A) -->
+        <nav class="sidebar-nav" role="tablist">
+            <button type="button" class="sidebar-nav-item is-active"
+                    data-tab="overview"  role="tab" aria-selected="true">
+                Overview
+            </button>
+            <button type="button" class="sidebar-nav-item"
+                    data-tab="wallets"   role="tab" aria-selected="false">
+                Wallets
+            </button>
+            <button type="button" class="sidebar-nav-item"
+                    data-tab="targets"   role="tab" aria-selected="false">
+                Targets
+            </button>
+            <button type="button" class="sidebar-nav-item"
+                    data-tab="rebalance" role="tab" aria-selected="false">
+                Rebalance
+            </button>
+        </nav>
+
+        <!-- feed panel -->
+        <div class="sidebar-feed" id="sidebarFeed">
+            <div class="sidebar-feed-row">
+                <span class="sidebar-feed-label">Draft</span>
+                <span class="sidebar-feed-value" id="feedDraftStatus">—</span>
+            </div>
+            <div class="sidebar-feed-row">
+                <span class="sidebar-feed-label">Last run</span>
+                <span class="sidebar-feed-value" id="feedLastRun">—</span>
+            </div>
+        </div>
+
+    </aside>
+
 <div class="app">
 
     <!-- ── Topbar ── -->
@@ -242,6 +288,7 @@
     </footer>
 
 </div>
+</div><!-- /.app-shell -->
 
 
 <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>

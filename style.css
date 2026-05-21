@@ -1476,3 +1476,97 @@ body {
   .account-metrics { grid-template-columns: 1fr 1fr; }
   .account-metric:last-child { grid-column: 1 / -1; border-left: none; border-top: 1px solid var(--border); padding-left: 0; padding-top: 8px; text-align: left; }
 }
+
+/* ══════════════════════════════════════════════════════════
+   LEDGERLINE — Phase 1A: Sidebar shell scaffolding
+   Structural rules only. Visual polish deferred to later phases.
+   ══════════════════════════════════════════════════════════ */
+
+.app-shell {
+  display: grid;
+  grid-template-columns: 240px 1fr;
+  min-height: 100vh;
+}
+
+.app-sidebar {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  padding: 20px 14px;
+  border-right: 1px solid var(--line, #e6e7ed);
+  background: var(--bg, #fbfaf7);
+  position: sticky;
+  top: 0;
+  height: 100vh;
+  box-sizing: border-box;
+}
+
+.sidebar-brand {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  margin-bottom: 24px;
+}
+.sidebar-brand-mark {
+  width: 32px; height: 32px;
+  border-radius: 8px;
+  display: flex; align-items: center; justify-content: center;
+  background: linear-gradient(180deg, oklch(0.6 0.16 285), oklch(0.5 0.16 285));
+  color: #fff;
+  font-weight: 600;
+  font-size: 14px;
+}
+.sidebar-brand-text {
+  display: flex; flex-direction: column;
+  line-height: 1.1;
+}
+.sidebar-brand-name { font-size: 14px; font-weight: 600; }
+.sidebar-brand-sub  { font-size: 11px; color: var(--muted, #727585); }
+
+.sidebar-nav {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+.sidebar-nav-item {
+  all: unset;
+  cursor: pointer;
+  padding: 8px 12px;
+  border-radius: 6px;
+  font-size: 13px;
+  color: var(--ink-2, #4d4f5e);
+}
+.sidebar-nav-item:hover {
+  background: var(--bg-2, #f5f3ef);
+}
+.sidebar-nav-item.is-active {
+  background: var(--accent-soft, #ece8fb);
+  color: var(--accent-ink, #4631ac);
+  font-weight: 500;
+}
+
+.sidebar-feed {
+  margin-top: auto;
+  padding: 12px;
+  border: 1px solid var(--line, #e6e7ed);
+  border-radius: 8px;
+  background: var(--bg-2, #f5f3ef);
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+.sidebar-feed-row {
+  display: flex;
+  justify-content: space-between;
+  font-size: 11px;
+}
+.sidebar-feed-label {
+  color: var(--muted, #727585);
+  text-transform: uppercase;
+  letter-spacing: 0.4px;
+}
+.sidebar-feed-value {
+  color: var(--ink-2, #4d4f5e);
+  font-weight: 500;
+  font-family: 'Geist Mono', ui-monospace, monospace;
+}
