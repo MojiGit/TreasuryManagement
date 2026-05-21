@@ -1372,6 +1372,15 @@ async function runPool() {
         const address = row.dataset.address;
         const role    = row.dataset.role;
 
+        // Pass the already-loaded balances so the backend can skip its second
+        // Etherscan round-trip.  A re-fetch can silently return 0 for USDT
+        // (rate-limit / transient error), which causes USDT to vanish from the
+        // transfer plan even when wallets genuinely hold USDT.
+        const loaded      = loadedWallets.find(
+            w => w.address.toLowerCase() === address.toLowerCase());
+        const balance     = loaded?.balance      ?? null;
+        const usdtBalance = loaded?.usdt_balance ?? null;
+
         if (role === 'master') {
             // ETH config
             const ethMode = row.querySelector('.master-mode-select').value;
@@ -1392,7 +1401,8 @@ async function runPool() {
             }
 
             wallets.push({ address, role, mode: null, target: ethTarget,
-                           usdt_mode: null, usdt_target: usdtTarget });
+                           usdt_mode: null, usdt_target: usdtTarget,
+                           balance, usdt_balance: usdtBalance });
         } else {
             // ETH config
             const ethMode = row.querySelector('.eth-mode-select').value;
@@ -1413,7 +1423,8 @@ async function runPool() {
             }
 
             wallets.push({ address, role, mode: ethMode, target: ethTarget,
-                           usdt_mode: usdtMode, usdt_target: usdtTarget });
+                           usdt_mode: usdtMode, usdt_target: usdtTarget,
+                           balance, usdt_balance: usdtBalance });
         }
     });
 

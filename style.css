@@ -1,3 +1,99 @@
+/* ══════════════════════════════════════════════════════════════════
+   LEDGERLINE DESIGN FOUNDATION — Phase 0
+   Token-only block. Zero visual impact: the existing :root below
+   overrides any conflicting variable names via normal CSS cascade
+   (later declaration wins). New tokens are purely additive.
+   ══════════════════════════════════════════════════════════════════ */
+
+:root {
+  /* ── Backgrounds ─────────────────────────────────────────────── */
+  --bg:              oklch(0.985 0.003 90);
+  --bg-2:            oklch(0.97  0.005 90);
+  --surface:         #ffffff;
+
+  /* ── Text ────────────────────────────────────────────────────── */
+  --ink:             oklch(0.22 0.012 280);
+  --ink-2:           oklch(0.4  0.012 280);
+  --muted:           oklch(0.55 0.012 280);
+  --faint:           oklch(0.72 0.008 280);
+
+  /* ── Borders ─────────────────────────────────────────────────── */
+  --line:            oklch(0.92 0.005 280);
+  --line-2:          oklch(0.95 0.004 280);
+
+  /* ── Accent (violet) ─────────────────────────────────────────── */
+  --accent:          oklch(0.55 0.14 282);
+  --accent-soft:     oklch(0.96 0.03 285);
+  --accent-ink:      oklch(0.35 0.14 282);
+
+  /* ── Semantic states ─────────────────────────────────────────── */
+  --positive:        oklch(0.58 0.13 165);
+  --positive-soft:   oklch(0.95 0.04 165);
+  --negative:        oklch(0.6  0.18  25);
+  --negative-soft:   oklch(0.96 0.03  25);
+  --warning:         oklch(0.7  0.13  70);
+  --warning-soft:    oklch(0.96 0.04  80);
+
+  /* ── Per-token asset colors ──────────────────────────────────── */
+  --token-eth:       oklch(0.55 0.16 285);  /* ≈ #6a55ee */
+  --token-usdt:      oklch(0.62 0.13 165);  /* ≈ #3aa57f */
+
+  /* ── Gradient tokens ─────────────────────────────────────────── */
+  --hero-gradient:
+    linear-gradient(135deg, oklch(0.98 0.02 320), oklch(0.97 0.03 285));
+  --cover-gradient:
+    linear-gradient(160deg, oklch(0.98 0.02 320), oklch(0.97 0.04 285) 60%, oklch(0.99 0.01 90));
+  --master-row-bg:
+    linear-gradient(90deg, oklch(0.985 0.015 285), transparent 70%);
+  --master-card-bg:
+    linear-gradient(180deg, oklch(0.99 0.01 285) 0%, var(--surface) 60%);
+  --master-card-border: oklch(0.9 0.04 285);
+
+  /* ── Elevation ───────────────────────────────────────────────── */
+  --shadow-sm:
+    0 1px 0   oklch(0.92 0.005 280 / 0.6),
+    0 1px 2px oklch(0.5  0.01  280 / 0.04);
+  --shadow-md:
+    0 1px 0        oklch(0.92 0.005 280 / 0.6),
+    0 4px 14px -6px oklch(0.5  0.01  280 / 0.08);
+
+  /* ── Radii ───────────────────────────────────────────────────── */
+  --radius-card:  12px;
+  --radius-btn:    8px;
+  --radius-input:  7px;
+  --radius-pill:  999px;
+
+  /* ── Density ─────────────────────────────────────────────────── */
+  --pad-row: 14px;
+
+  /* ── Wallet color palette (5 deterministic slots) ────────────── */
+  --wallet-0-light: #a78bfa;  --wallet-0-dark: #7c5cff;  /* violet  */
+  --wallet-1-light: #6ee7b7;  --wallet-1-dark: #34d399;  /* emerald */
+  --wallet-2-light: #fbbf24;  --wallet-2-dark: #f59e0b;  /* amber   */
+  --wallet-3-light: #f472b6;  --wallet-3-dark: #ec4899;  /* pink    */
+  --wallet-4-light: #60a5fa;  --wallet-4-dark: #3b82f6;  /* blue    */
+}
+
+[data-density="compact"] { --pad-row: 10px; }
+
+/* ── Typography utility classes ──────────────────────────────────── */
+.ledger-sans {
+  font-family: 'Geist', ui-sans-serif, system-ui, sans-serif;
+  font-feature-settings: "ss01", "cv11";
+}
+.ledger-mono {
+  font-family: 'Geist Mono', ui-monospace, monospace;
+  font-feature-settings: "tnum", "zero";
+  font-variant-numeric: tabular-nums;
+}
+
+/* ── Selection highlight ─────────────────────────────────────────── */
+::selection { background: var(--accent-soft); }
+
+/* ══════════════════════════════════════════════════════════════════
+   END LEDGERLINE DESIGN FOUNDATION
+   ══════════════════════════════════════════════════════════════════ */
+
 /* ═══ Design Tokens ══════════════════════════════════════════════ */
 :root {
   /* Core palette — institutional blue */

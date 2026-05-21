@@ -29,12 +29,17 @@ templates = Jinja2Templates(directory=".")
 # ── Pydantic models ───────────────────────────────────────
 
 class WalletInput(BaseModel):
-    address:     str
-    role:        str
-    mode:        Optional[str]   = None
-    target:      Optional[float] = None
-    usdt_mode:   Optional[str]   = None
-    usdt_target: Optional[float] = None
+    address:      str
+    role:         str
+    mode:         Optional[str]   = None
+    target:       Optional[float] = None
+    usdt_mode:    Optional[str]   = None
+    usdt_target:  Optional[float] = None
+    # Pre-fetched balances — when the frontend includes these the pool endpoint
+    # skips the second Etherscan round-trip.  This prevents a silent USDT = 0
+    # if the token-balance API returns an error on the re-fetch.
+    balance:      Optional[float] = None
+    usdt_balance: Optional[float] = None
 
 
 class LoadRequest(BaseModel):
@@ -145,8 +150,18 @@ async def gas_oracle():
 
 @app.post("/api/pool")
 async def pool(payload: LoadRequest):
-    wallets           = [w.model_dump() for w in payload.wallets]
-    wallets_with_bals = await get_balances(wallets)
+    wallets = [w.model_dump() for w in payload.wallets]
+
+    # If the frontend already sent pre-fetched balances, use them directly and
+    # skip the second Etherscan call.  A second call can silently return 0 for
+    # USDT (rate-limit / transient error), which would produce no USDT transfers
+    # even when wallets hold real USDT.  The user can always hit ↺ Refresh in
+    # the portfolio view to pull fresh balances before running the pool.
+    if all(w.get("balance") is not None and w.get("usdt_balance") is not None
+           for w in wallets):
+        wallets_with_bals = wallets
+    else:
+        wallets_with_bals = await get_balances(wallets)
 
     # ── ETH pooling ───────────────────────────────────────
     eth_inputs = _build_inputs(wallets_with_bals, "balance",      "mode",      "target")
