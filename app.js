@@ -22,8 +22,10 @@ const MASTER_CHART_COLOR = '#94A3B8';
 let ethUsdPrice      = null;
 let usdtUsdPrice     = null;   // live market rate; falls back to 1.0 if unavailable
 let pricesFetchedAt  = null;   // Date of last successful token-price fetch
-let gasPriceGwei     = null;   // effective gas price in Gwei (base + tip, set when Run Pool fires)
+let gasPriceGwei      = null;  // effective gas price in Gwei (base + tip, set when Run Pool fires)
 let gasPriceFetchedAt = null;  // Date of last successful gas-price fetch
+let planGeneratedAt   = null;  // Date when the last /api/pool plan was computed
+let planStalenessInterval = null; // setInterval handle for plan-age staleness ticker
 // Fallback effective gas price (Gwei) — base + tip — used when Etherscan is unavailable.
 // Mirrors the server-side formula: base ~0.5 Gwei + tip min(0.5, 1) = 1 Gwei effective.
 const GAS_PRICE_FALLBACK_GWEI = 1;
@@ -321,6 +323,14 @@ function setLoading(btn, loading) {
 }
 
 // ── Subwallet Management ──────────────────────────────────
+function updateSubwalletCounter() {
+    const n       = document.querySelectorAll('.subwallet-row').length;
+    const btn     = document.getElementById('add-subwallet');
+    const counter = document.getElementById('subwallet-counter');
+    if (counter) counter.textContent = `Sub-wallets: ${n} / 15`;
+    if (btn)     btn.disabled = n >= 15;
+}
+
 function addSubwallet() {
     const list = document.getElementById('subwallet-list');
     const row  = document.createElement('div');
@@ -333,9 +343,10 @@ function addSubwallet() {
         <button class="btn-remove" onclick="removeSubwallet(this)" title="Remove">&#x2715;</button>
     `;
     list.appendChild(row);
+    updateSubwalletCounter();
 }
 
-function removeSubwallet(btn) { btn.parentElement.remove(); }
+function removeSubwallet(btn) { btn.parentElement.remove(); updateSubwalletCounter(); }
 
 // ── Draft Persistence ─────────────────────────────────────
 // Persists wallet addresses, live balances, prices, and pooling config.
@@ -787,7 +798,9 @@ function renderDonutChartTo(svgEl, wallets, total, containerId, {
     centerLabel = 'ETH',
     centerFmt   = v => fmtEth(v),
 } = {}) {
-    if (!svgEl || !total) return;
+    // null/undefined means the value is unavailable — skip rendering.
+    // 0 is a valid total (all balances are zero) — allow it through.
+    if (!svgEl || total == null) return;
 
     const cx = 100, cy = 100, outerR = 82, innerR = 56;
     const GAP    = 1.2;   // degrees between segments
@@ -803,7 +816,25 @@ function renderDonutChartTo(svgEl, wallets, total, containerId, {
             role:    w.role,
         }));
 
-    if (slices.length === 0) { svgEl.innerHTML = ''; return; }
+    if (slices.length === 0) {
+        if (total === 0) {
+            // Every wallet has a zero balance for this token — render a neutral
+            // full-circle ring so the chart area is never blank.
+            svgEl.innerHTML = `
+                <path d="${donutPath(cx, cy, outerR, innerR, 0, 360)}"
+                    fill="${MASTER_CHART_COLOR}" />
+                <circle cx="${cx}" cy="${cy}" r="${innerR - 1}" fill="#FFFFFF" />
+                <text x="${cx}" y="${cy - 4}" text-anchor="middle"
+                    class="chart-center-value">${centerFmt(total)}</text>
+                <text x="${cx}" y="${cy + 14}" text-anchor="middle"
+                    class="chart-center-label">${centerLabel}</text>`;
+            // Reuse the same opacity the hover system applies to non-highlighted elements.
+            svgEl.style.opacity = '0.2';
+        } else {
+            svgEl.innerHTML = '';  // total > 0 but all wallets errored — nothing to draw
+        }
+        return;
+    }
 
     // Enforce minimum visual angle so tiny wallets remain visible
     const tinyCount  = slices.filter(s => (s.pct / 100) * 360 < MIN_DEG).length;
@@ -892,6 +923,9 @@ function renderDonutChartTo(svgEl, wallets, total, containerId, {
             allWalletEls().forEach(e => { e.style.opacity = ''; });
         });
     });
+    // Non-zero charts are never permanently dimmed; clear any opacity left from a prior
+    // zero-total render of the same SVG element.
+    svgEl.style.opacity = '';
 }
 
 function displayPortfolio(data) {
@@ -933,8 +967,8 @@ function displayPortfolio(data) {
                 <div class="master-metric-share">${masterEthPct}% of ETH portfolio</div>
             </div>
             <div class="master-metric">
-                <div class="master-metric-balance">${master.usdt_balance.toFixed(2)} <span class="master-metric-unit">USDT</span></div>
-                <div class="master-metric-usd">${fmtDollars(master.usdt_usd)} USD</div>
+                <div class="master-metric-balance">${(master.usdt_balance ?? 0).toFixed(2)} <span class="master-metric-unit">USDT</span></div>
+                ${master.usdt_usd != null ? `<div class="master-metric-usd">${fmtDollars(master.usdt_usd)} USD</div>` : ''}
                 <div class="master-metric-share">${masterUsdtPct}% of USDT portfolio</div>
             </div>
         </div>`;
@@ -981,8 +1015,8 @@ function displayPortfolio(data) {
                                     <div class="account-metric-share">${ethPct}% of ETH portfolio</div>
                                 </div>
                                 <div class="account-metric">
-                                    <div class="account-metric-bal">${w.usdt_balance.toFixed(2)} <span class="account-metric-unit">USDT</span></div>
-                                    <div class="account-metric-usd">${fmtDollars(w.usdt_usd)} USD</div>
+                                    <div class="account-metric-bal">${(w.usdt_balance ?? 0).toFixed(2)} <span class="account-metric-unit">USDT</span></div>
+                                    ${w.usdt_usd != null ? `<div class="account-metric-usd">${fmtDollars(w.usdt_usd)} USD</div>` : ''}
                                     <div class="account-metric-share">${usdtPct}% of USDT portfolio</div>
                                 </div>
                                 <div class="account-metric">
@@ -1329,6 +1363,10 @@ async function runPool() {
     const poolBtn = document.getElementById('pool-btn');
     errorEl.textContent = '';
 
+    // Reset plan age state so a stale ticker from a previous run never carries over.
+    if (planStalenessInterval) { clearInterval(planStalenessInterval); planStalenessInterval = null; }
+    planGeneratedAt = null;
+
     const wallets = [];
     document.querySelectorAll('#pooling-body tr').forEach(row => {
         const address = row.dataset.address;
@@ -1394,7 +1432,8 @@ async function runPool() {
         ]);
         const data = await response.json();
         if (!response.ok) { errorEl.textContent = 'Server error. Please try again.'; return; }
-        lastPoolResult = data;
+        lastPoolResult  = data;
+        planGeneratedAt = new Date();
         displayResults(data);
     } catch (err) {
         errorEl.textContent = 'Could not connect to server.';
@@ -1498,6 +1537,17 @@ function displayResults(data) {
         gasAlertsEl.innerHTML = alertsHtml;
     }
 
+    // Plan-age timestamp — remove any leftover from a previous render then rebuild.
+    document.getElementById('plan-stale-banner')?.remove();
+    document.getElementById('plan-age')?.remove();
+    if (planGeneratedAt && gasAlertsEl) {
+        gasAlertsEl.insertAdjacentHTML('beforebegin',
+            `<div id="plan-age" class="pricing-legend" style="margin-bottom:6px;">` +
+            `<span class="pricing-legend-label">Plan</span>` +
+            fmtLegendTimestamp(planGeneratedAt) +
+            `</div>`);
+    }
+
     const tbody    = document.getElementById('transfer-body');
     const execNote = document.getElementById('transfer-exec-note');
     tbody.innerHTML = '';
@@ -1587,6 +1637,35 @@ function displayResults(data) {
         }
     }
 
+    // Plan staleness ticker — updates the age badge every 60 s; warns after 15 min.
+    if (planStalenessInterval) { clearInterval(planStalenessInterval); planStalenessInterval = null; }
+    if (planGeneratedAt) {
+        planStalenessInterval = setInterval(() => {
+            const planAgeEl = document.getElementById('plan-age');
+            if (!planAgeEl || !planGeneratedAt) {
+                clearInterval(planStalenessInterval);
+                planStalenessInterval = null;
+                return;
+            }
+            const ageMin = Math.floor((Date.now() - planGeneratedAt.getTime()) / 60000);
+            planAgeEl.innerHTML =
+                `<span class="pricing-legend-label">Plan</span>` +
+                fmtLegendTimestamp(planGeneratedAt);
+            if (ageMin > 15) {
+                planAgeEl.classList.add('alert-warning');
+                let bannerEl = document.getElementById('plan-stale-banner');
+                if (!bannerEl) {
+                    bannerEl = document.createElement('div');
+                    bannerEl.id        = 'plan-stale-banner';
+                    bannerEl.className = 'alert alert-warning';
+                    planAgeEl.insertAdjacentElement('afterend', bannerEl);
+                }
+                bannerEl.textContent =
+                    `⚠ Plan is ${ageMin} minutes old. Refresh and re-run before executing.`;
+            }
+        }, 60000);
+    }
+
     // After-transfer portfolio view
     renderAfterPortfolio(data);
 }
@@ -1613,8 +1692,8 @@ function renderAfterPortfolio(data) {
     const mEthPct      = pm.totalEth  > 0 ? (masterEntry.post       / pm.totalEth  * 100).toFixed(1) : '0';
     const mUsdtPct     = pm.totalUsdt > 0 ? ((masterEntry.usdt_post ?? 0) / pm.totalUsdt * 100).toFixed(1) : '0';
     const mDelta       = masterEntry.delta;
-    const mUsdtDelta   = masterEntry.usdt_delta || 0;
-    const mUsdtPost    = masterEntry.usdt_post  || 0;
+    const mUsdtDelta   = masterEntry.usdt_delta ?? 0;
+    const mUsdtPost    = masterEntry.usdt_post  ?? 0;
     const mEthUsd      = ethToUsd(masterEntry.post);
     const mUsdtUsd     = r2(mUsdtPost * usdtRate());
     const mTotalUsd    = mEthUsd != null ? r2(mEthUsd + mUsdtUsd) : null;
@@ -1665,7 +1744,7 @@ function renderAfterPortfolio(data) {
             ? (postTotalUsd / pm.totalUsd * 100).toFixed(1) : ethPct;
 
         const delta      = w.delta;
-        const usdtDelta  = w.usdt_delta || 0;
+        const usdtDelta  = w.usdt_delta ?? 0;
 
         const ethDeltaPill  = delta === 0     ? '' :
             `<span class="delta-pill ${delta > 0 ? 'up' : 'down'}">${delta > 0 ? '↑ +' : '↓ '}${delta.toFixed(4)}</span>`;
