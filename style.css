@@ -72,6 +72,61 @@
   --wallet-2-light: #fbbf24;  --wallet-2-dark: #f59e0b;  /* amber   */
   --wallet-3-light: #f472b6;  --wallet-3-dark: #ec4899;  /* pink    */
   --wallet-4-light: #60a5fa;  --wallet-4-dark: #3b82f6;  /* blue    */
+
+  /* ── Bridge aliases — maps old token names to Ledgerline ── */
+
+  /* Radius: old system used --card-r / --input-r / --btn-r     */
+  --card-r:          var(--radius-card);
+  --input-r:         var(--radius-input);
+  --btn-r:           var(--radius-btn);
+
+  /* Surfaces: old --surface-2 / --surface-3 map to bg tokens   */
+  --surface-2:       var(--bg-2);
+  --surface-3:       var(--line);
+
+  /* Borders: old --border names map to Ledgerline line tokens   */
+  --border:          var(--line);
+  --border-2:        var(--line-2);
+  --border-3:        var(--muted);
+
+  /* Text: old --text names map to Ledgerline ink tokens         */
+  --text:            var(--ink);
+  --text-2:          var(--ink-2);
+  --text-3:          var(--muted);
+
+  /* Semantic states                                             */
+  --green:           var(--positive);
+  --green-dim:       var(--positive-soft);
+  --red:             var(--negative);
+  --red-dim:         var(--negative-soft);
+  --amber:           var(--warning);
+  --amber-dim:       var(--warning-soft);
+
+  /* Primary: old --primary maps to Ledgerline --accent          */
+  --primary:         var(--accent);
+  --primary-hover:   var(--accent-ink);
+  --primary-dim:     var(--accent-soft);
+  --primary-glow:    transparent;
+
+  /* Input background                                            */
+  --input-bg:        var(--surface);
+
+  /* Typography                                                  */
+  --font-sans:       'Geist', ui-sans-serif, system-ui,
+                     -apple-system, 'Segoe UI', Helvetica, sans-serif;
+  --font-mono:       'Geist Mono', ui-monospace, 'SF Mono',
+                     'Cascadia Mono', Consolas, monospace;
+
+  /* Transition shorthands — keep for now                        */
+  --t:               0.1s ease;
+  --t-slow:          0.18s ease;
+
+  /* Topbar — map to Ledgerline ink (dark surface)               */
+  --topbar-bg:       var(--ink);
+  --topbar-border:   var(--ink-2);
+
+  /* Layout                                                      */
+  --max-w:           1120px;
 }
 
 [data-density="compact"] { --pad-row: 10px; }
@@ -95,14 +150,20 @@
    ══════════════════════════════════════════════════════════════════ */
 
 /* ═══ Design Tokens ══════════════════════════════════════════════ */
+/* ══════════════════════════════════════════════════════════════
+   LEDGERLINE Phase 2C: Legacy blue palette — RETIRED
+   All tokens bridged or superseded by Phase 0 Ledgerline block.
+   May be deleted permanently in a later cleanup phase.
+   ══════════════════════════════════════════════════════════════
+/*
 :root {
-  /* Core palette — institutional blue */
+  /* Core palette — institutional blue
   --primary:        #1D4ED8;
   --primary-hover:  #1E40AF;
   --primary-dim:    #EFF6FF;
   --primary-glow:   transparent;
 
-  /* Accent = primary (no separate neon color) */
+  /* Accent = primary (no separate neon color)
   --accent:         #1D4ED8;
   --accent-hover:   #1E40AF;
   --accent-dim:     #EFF6FF;
@@ -110,24 +171,24 @@
 
   --secondary:      #CBD5E1;
 
-  /* Surfaces */
+  /* Surfaces
   --bg:             #F1F5F9;
   --surface:        #FFFFFF;
   --surface-2:      #F8FAFC;
   --surface-3:      #E2E8F0;
   --input-bg:       #FFFFFF;
 
-  /* Borders */
+  /* Borders
   --border:         #E2E8F0;
   --border-2:       #CBD5E1;
   --border-3:       #94A3B8;
 
-  /* Text */
+  /* Text
   --text:           #0F172A;
   --text-2:         #475569;
   --text-3:         #94A3B8;
 
-  /* Semantic */
+  /* Semantic
   --green:          #15803D;
   --green-dim:      #F0FDF4;
   --red:            #B91C1C;
@@ -137,29 +198,30 @@
   --purple-light:   #1D4ED8;
   --purple-dim:     #EFF6FF;
 
-  /* Shape — angular, tight */
+  /* Shape — angular, tight
   --max-w:          1120px;
   --card-r:         4px;
   --input-r:        3px;
   --btn-r:          3px;
 
-  /* Shadows — minimal, no glow */
+  /* Shadows — minimal, no glow
   --shadow-sm:      0 1px 2px rgba(15, 23, 42, 0.05);
   --shadow-md:      0 2px 6px rgba(15, 23, 42, 0.07);
   --shadow-glow-p:  none;
   --shadow-glow-a:  none;
 
-  /* Typography */
+  /* Typography
   --font-sans:      'Geist', ui-sans-serif, system-ui, -apple-system, 'Segoe UI', Helvetica, sans-serif;
   --font-mono:      'Geist Mono', ui-monospace, 'SF Mono', 'Cascadia Mono', Consolas, monospace;
 
   --t:              0.1s ease;
   --t-slow:         0.18s ease;
 
-  /* Topbar */
+  /* Topbar
   --topbar-bg:      #0F172A;
   --topbar-border:  #1E293B;
 }
+*/
 
 /* ═══ Reset ══════════════════════════════════════════════════════ */
 *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
@@ -648,7 +710,7 @@ body {
   background: var(--primary-dim);
   color: var(--primary);
   align-self: flex-start;
-  border: 1px solid rgba(29, 78, 216, 0.15);
+  border: 1px solid color-mix(in oklch, var(--accent) 15%, transparent);
 }
 
 .master-addr {
@@ -1059,7 +1121,7 @@ body {
 .role-master {
   background: var(--primary-dim);
   color: var(--primary);
-  border: 1px solid rgba(29, 78, 216, 0.18);
+  border: 1px solid color-mix(in oklch, var(--accent) 18%, transparent);
 }
 
 .role-sub {
@@ -1575,12 +1637,16 @@ body {
   font-weight: 600;
   font-size: 14px;
 }
+.sidebar-brand-mark {
+  box-shadow: 0 1px 0 oklch(1 0 0 / 0.15) inset,
+              0 1px 1px oklch(0.3 0.1 285 / 0.15);
+}
 .sidebar-brand-text {
   display: flex; flex-direction: column;
   line-height: 1.1;
 }
-.sidebar-brand-name { font-size: 14px; font-weight: 600; }
-.sidebar-brand-sub  { font-size: 11px; color: var(--muted, #727585); }
+.sidebar-brand-name { font-size: 14px; font-weight: 600; letter-spacing: -0.01em; }
+.sidebar-brand-sub  { font-size: 11px; color: var(--muted, #727585); letter-spacing: 0.01em; }
 
 .sidebar-nav {
   display: flex;
@@ -1594,6 +1660,8 @@ body {
   border-radius: 6px;
   font-size: 13px;
   color: var(--ink-2, #4d4f5e);
+  letter-spacing: 0.01em;
+  transition: background var(--t, 0.1s ease), color var(--t, 0.1s ease);
 }
 .sidebar-nav-item:hover {
   background: var(--bg-2, #f5f3ef);
@@ -1602,6 +1670,7 @@ body {
   background: var(--accent-soft, #ece8fb);
   color: var(--accent-ink, #4631ac);
   font-weight: 500;
+  letter-spacing: 0.01em;
 }
 
 .sidebar-feed {
@@ -1622,7 +1691,8 @@ body {
 .sidebar-feed-label {
   color: var(--muted, #727585);
   text-transform: uppercase;
-  letter-spacing: 0.4px;
+  letter-spacing: 0.5px;
+  font-weight: 500;
 }
 .sidebar-feed-value {
   color: var(--ink-2, #4d4f5e);
@@ -1630,6 +1700,7 @@ body {
   font-family: var(--font-mono);
   font-variant-numeric: tabular-nums;
   font-feature-settings: "tnum", "zero";
+  font-size: 11px;
 }
 
 /* ══════════════════════════════════════════════════════════
