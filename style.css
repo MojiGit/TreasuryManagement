@@ -150,8 +150,8 @@
   --shadow-glow-a:  none;
 
   /* Typography */
-  --font-sans:      system-ui, -apple-system, 'Segoe UI', Helvetica, sans-serif;
-  --font-mono:      ui-monospace, 'SF Mono', 'Cascadia Mono', Consolas, monospace;
+  --font-sans:      'Geist', ui-sans-serif, system-ui, -apple-system, 'Segoe UI', Helvetica, sans-serif;
+  --font-mono:      'Geist Mono', ui-monospace, 'SF Mono', 'Cascadia Mono', Consolas, monospace;
 
   --t:              0.1s ease;
   --t-slow:         0.18s ease;
@@ -172,6 +172,7 @@ html { scroll-behavior: smooth; }
 
 body {
   font-family: var(--font-sans);
+  font-feature-settings: "ss01", "cv11";
   font-size: 13px;
   line-height: 1.5;
   background: var(--bg);
@@ -396,6 +397,8 @@ body {
   border-radius: var(--input-r);
   font-size: 12px;
   font-family: var(--font-mono);
+  font-variant-numeric: tabular-nums;
+  font-feature-settings: "tnum", "zero";
   color: var(--text);
   background: var(--input-bg);
   letter-spacing: 0.01em;
@@ -430,6 +433,8 @@ body {
   border-radius: var(--input-r);
   font-size: 12px;
   font-family: var(--font-mono);
+  font-variant-numeric: tabular-nums;
+  font-feature-settings: "tnum", "zero";
   color: var(--text);
   background: var(--input-bg);
   letter-spacing: 0.01em;
@@ -648,6 +653,8 @@ body {
 
 .master-addr {
   font-family: var(--font-mono);
+  font-variant-numeric: tabular-nums;
+  font-feature-settings: "tnum", "zero";
   font-size: 11.5px;
   color: var(--text-2);
   letter-spacing: 0.02em;
@@ -661,6 +668,8 @@ body {
 
 .master-total-value {
   font-family: var(--font-mono);
+  font-variant-numeric: tabular-nums;
+  font-feature-settings: "tnum", "zero";
   font-size: 22px;
   font-weight: 700;
   color: var(--text);
@@ -677,6 +686,8 @@ body {
 
 .master-total-delta {
   font-family: var(--font-mono);
+  font-variant-numeric: tabular-nums;
+  font-feature-settings: "tnum", "zero";
   font-size: 10.5px;
   font-weight: 600;
   margin-top: 3px;
@@ -705,6 +716,8 @@ body {
 
 .master-metric-balance {
   font-family: var(--font-mono);
+  font-variant-numeric: tabular-nums;
+  font-feature-settings: "tnum", "zero";
   font-size: 20px;
   font-weight: 700;
   color: var(--text);
@@ -721,6 +734,8 @@ body {
 
 .master-metric-usd {
   font-family: var(--font-mono);
+  font-variant-numeric: tabular-nums;
+  font-feature-settings: "tnum", "zero";
   font-size: 11px;
   color: var(--text-3);
   margin-top: 3px;
@@ -728,6 +743,8 @@ body {
 
 .master-metric-share {
   font-family: var(--font-mono);
+  font-variant-numeric: tabular-nums;
+  font-feature-settings: "tnum", "zero";
   font-size: 10.5px;
   color: var(--text-3);
   margin-top: 1px;
@@ -735,6 +752,8 @@ body {
 
 .master-metric-delta {
   font-family: var(--font-mono);
+  font-variant-numeric: tabular-nums;
+  font-feature-settings: "tnum", "zero";
   font-size: 11px;
   font-weight: 600;
   margin-top: 3px;
@@ -846,6 +865,8 @@ body {
 
 .account-metric-bal {
   font-family: var(--font-mono);
+  font-variant-numeric: tabular-nums;
+  font-feature-settings: "tnum", "zero";
   font-size: 13px;
   font-weight: 700;
   color: var(--text);
@@ -862,6 +883,8 @@ body {
 
 .account-metric-usd {
   font-family: var(--font-mono);
+  font-variant-numeric: tabular-nums;
+  font-feature-settings: "tnum", "zero";
   font-size: 10.5px;
   color: var(--primary);
   margin-top: 1px;
@@ -869,6 +892,8 @@ body {
 
 .account-metric-share {
   font-family: var(--font-mono);
+  font-variant-numeric: tabular-nums;
+  font-feature-settings: "tnum", "zero";
   font-size: 10px;
   color: var(--text-3);
   margin-top: 1px;
@@ -877,6 +902,8 @@ body {
 /* Right column: total wallet USD */
 .account-total-value {
   font-family: var(--font-mono);
+  font-variant-numeric: tabular-nums;
+  font-feature-settings: "tnum", "zero";
   font-size: 16px;
   font-weight: 700;
   color: var(--text);
@@ -950,6 +977,8 @@ body {
 
 .chart-center-value {
   font-family: var(--font-mono);
+  font-variant-numeric: tabular-nums;
+  font-feature-settings: "tnum", "zero";
   font-size: 13px;
   font-weight: 700;
   fill: var(--text);
@@ -999,6 +1028,8 @@ body {
 
 .cell-mono {
   font-family: var(--font-mono);
+  font-variant-numeric: tabular-nums;
+  font-feature-settings: "tnum", "zero";
   font-size: 11.5px;
   letter-spacing: 0.01em;
   color: var(--text-2);
@@ -1006,6 +1037,8 @@ body {
 
 .cell-num {
   font-family: var(--font-mono);
+  font-variant-numeric: tabular-nums;
+  font-feature-settings: "tnum", "zero";
   font-size: 12px;
   font-variant-numeric: tabular-nums;
 }
@@ -1057,6 +1090,8 @@ body {
   border-radius: var(--input-r);
   font-size: 12px;
   font-family: var(--font-mono);
+  font-variant-numeric: tabular-nums;
+  font-feature-settings: "tnum", "zero";
   background: var(--input-bg);
   color: var(--text);
   transition: border-color var(--t);
@@ -1097,6 +1132,8 @@ body {
   font-weight: 700;
   color: var(--text);
   font-family: var(--font-mono);
+  font-variant-numeric: tabular-nums;
+  font-feature-settings: "tnum", "zero";
   letter-spacing: -0.03em;
   line-height: 1.1;
 }
@@ -1177,6 +1214,8 @@ body {
 /* Delta on master hero */
 .master-delta {
   font-family: var(--font-mono);
+  font-variant-numeric: tabular-nums;
+  font-feature-settings: "tnum", "zero";
   font-size: 12px;
   font-weight: 600;
   margin-top: 2px;
@@ -1197,6 +1236,8 @@ body {
   padding: 1px 6px;
   border-radius: 2px;
   font-family: var(--font-mono);
+  font-variant-numeric: tabular-nums;
+  font-feature-settings: "tnum", "zero";
   font-size: 10px;
   font-weight: 700;
   white-space: nowrap;
@@ -1220,6 +1261,8 @@ body {
 .wallet-addr {
   display: block;
   font-family: var(--font-mono);
+  font-variant-numeric: tabular-nums;
+  font-feature-settings: "tnum", "zero";
   font-size: 10.5px;
   color: var(--text-3);
   letter-spacing: 0.01em;
@@ -1228,6 +1271,8 @@ body {
 /* No label — address shown as the primary identifier */
 .wallet-addr-only {
   font-family: var(--font-mono);
+  font-variant-numeric: tabular-nums;
+  font-feature-settings: "tnum", "zero";
   font-size: 11.5px;
   color: var(--text);
   letter-spacing: 0.01em;
@@ -1255,6 +1300,8 @@ body {
 /* ═══ USDT Balance Lines ═════════════════════════════════════════ */
 .master-usdt-bal {
   font-family: var(--font-mono);
+  font-variant-numeric: tabular-nums;
+  font-feature-settings: "tnum", "zero";
   font-size: 13px;
   font-weight: 600;
   color: var(--green);
@@ -1264,6 +1311,8 @@ body {
 
 .account-usdt {
   font-family: var(--font-mono);
+  font-variant-numeric: tabular-nums;
+  font-feature-settings: "tnum", "zero";
   font-size: 10.5px;
   color: var(--green);
   margin-top: 1px;
@@ -1308,6 +1357,8 @@ body {
 .conversion-hint {
   display: none;
   font-family: var(--font-mono);
+  font-variant-numeric: tabular-nums;
+  font-feature-settings: "tnum", "zero";
   font-size: 10.5px;
   color: var(--text-3);
   padding-left: 1px;
@@ -1318,6 +1369,8 @@ body {
 .val-usd {
   display: block;
   font-family: var(--font-mono);
+  font-variant-numeric: tabular-nums;
+  font-feature-settings: "tnum", "zero";
   font-size: 10.5px;
   color: var(--text-3);
   letter-spacing: 0.01em;
@@ -1359,6 +1412,8 @@ body {
   align-items: center;
   gap: 5px;
   font-family: var(--font-mono);
+  font-variant-numeric: tabular-nums;
+  font-feature-settings: "tnum", "zero";
   font-size: 11px;
   color: var(--text-3);
   padding-right: 12px;
@@ -1389,6 +1444,8 @@ body {
 
 .pricing-legend-ts {
   font-family: var(--font-mono);
+  font-variant-numeric: tabular-nums;
+  font-feature-settings: "tnum", "zero";
   font-size: 10px;
   color: var(--text-3);
   margin-left: 10px;
@@ -1408,6 +1465,8 @@ body {
 /* Gas Est. table cell */
 .gas-cell {
   font-family: var(--font-mono);
+  font-variant-numeric: tabular-nums;
+  font-feature-settings: "tnum", "zero";
   font-size: 11.5px;
   white-space: nowrap;
 }
@@ -1568,7 +1627,9 @@ body {
 .sidebar-feed-value {
   color: var(--ink-2, #4d4f5e);
   font-weight: 500;
-  font-family: 'Geist Mono', ui-monospace, monospace;
+  font-family: var(--font-mono);
+  font-variant-numeric: tabular-nums;
+  font-feature-settings: "tnum", "zero";
 }
 
 /* ══════════════════════════════════════════════════════════
