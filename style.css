@@ -385,19 +385,19 @@ body {
 .card {
   background: var(--surface);
   border-radius: var(--card-r);
-  border: 1px solid var(--border-2);
+  border: 1px solid var(--line);
   box-shadow: var(--shadow-sm);
   overflow: hidden;
 }
 
 .card-header {
   padding: 14px 24px;
-  border-bottom: 1px solid var(--border);
+  border-bottom: 1px solid var(--line);
   display: flex;
   align-items: center;
   justify-content: space-between;
   gap: 16px;
-  background: var(--surface-2);
+  background: transparent;
 }
 
 .card-header h2 {
@@ -418,7 +418,7 @@ body {
   letter-spacing: 0;
 }
 
-.card-body { padding: 20px 24px 24px; }
+.card-body { padding: 22px 24px 24px; }
 
 .card-actions {
   margin-top: 16px;
@@ -515,10 +515,10 @@ body {
   flex-shrink: 0;
   width: 30px;
   height: 30px;
-  border: 1px solid var(--border-2);
-  border-radius: var(--input-r);
-  background: none;
-  color: var(--text-3);
+  border: 1px solid var(--line);
+  border-radius: var(--radius-btn);
+  background: var(--surface);
+  color: var(--negative);
   font-size: 12px;
   display: flex;
   align-items: center;
@@ -527,9 +527,9 @@ body {
 }
 
 .btn-remove:hover {
-  border-color: var(--red);
-  color: var(--red);
-  background: var(--red-dim);
+  background: var(--negative-soft);
+  border-color: var(--negative);
+  color: var(--negative);
 }
 
 /* ═══ Buttons ════════════════════════════════════════════════════ */
@@ -538,53 +538,59 @@ body {
   align-items: center;
   justify-content: center;
   gap: 7px;
-  background: var(--primary);
-  color: white;
-  border: none;
-  border-radius: var(--btn-r);
-  padding: 9px 20px;
+  background: linear-gradient(180deg, oklch(0.6 0.16 285), oklch(0.5 0.16 285));
+  color: #ffffff;
+  border: 1px solid oklch(0.46 0.16 285);
+  border-radius: var(--radius-btn);
+  padding: 6px 12px;
   font-size: 13px;
-  font-weight: 600;
+  font-weight: 500;
   cursor: pointer;
   width: 100%;
   letter-spacing: 0.01em;
-  box-shadow: none;
-  transition: background var(--t);
+  box-shadow: 0 1px 0 oklch(1 0 0 / 0.15) inset,
+              0 1px 1px oklch(0.3 0.1 285 / 0.15);
+  transition: background var(--t), box-shadow var(--t);
 }
 
-.btn-primary:hover  { background: var(--primary-hover); }
+.btn-primary:hover {
+  background: linear-gradient(180deg, oklch(0.58 0.16 285), oklch(0.48 0.16 285));
+  box-shadow: 0 1px 0 oklch(1 0 0 / 0.15) inset,
+              0 1px 1px oklch(0.3 0.1 285 / 0.2);
+}
 .btn-primary:active { opacity: 0.9; }
 
 .btn-primary:disabled {
-  background: var(--surface-3);
-  color: var(--text-3);
+  background: var(--bg-2);
+  color: var(--muted);
+  border-color: var(--line);
+  box-shadow: none;
   cursor: not-allowed;
 }
 
-.btn-accent         { background: var(--primary); color: white; box-shadow: none; }
-.btn-accent:hover   { background: var(--primary-hover); box-shadow: none; }
-.btn-accent:disabled { background: var(--surface-3); color: var(--text-3); box-shadow: none; }
+.btn-accent { box-shadow: none; }
 
 .btn-secondary {
   display: inline-flex;
   align-items: center;
   gap: 6px;
-  background: none;
-  color: var(--text-2);
-  border: 1px solid var(--border-2);
-  border-radius: var(--btn-r);
-  padding: 7px 14px;
-  font-size: 12.5px;
-  font-weight: 600;
+  background: var(--surface);
+  color: var(--ink);
+  border: 1px solid var(--line);
+  border-radius: var(--radius-btn);
+  padding: 6px 12px;
+  font-size: 13px;
+  font-weight: 500;
   cursor: pointer;
   flex-shrink: 0;
+  box-shadow: var(--shadow-sm);
   transition: border-color var(--t), background var(--t), color var(--t);
 }
 
 .btn-secondary:hover {
-  border-color: var(--border-3);
-  background: var(--surface-2);
-  color: var(--text);
+  background: var(--bg-2);
+  border-color: var(--line);
+  color: var(--ink);
 }
 
 .btn-add {
@@ -592,12 +598,12 @@ body {
   align-items: center;
   justify-content: center;
   gap: 5px;
-  background: none;
-  color: var(--text-2);
-  border: 1px dashed var(--border-2);
-  border-radius: var(--btn-r);
-  padding: 7px 12px;
-  font-size: 12.5px;
+  background: transparent;
+  color: var(--ink-2);
+  border: 1px solid var(--line);
+  border-radius: var(--radius-btn);
+  padding: 6px 12px;
+  font-size: 13px;
   font-weight: 500;
   cursor: pointer;
   width: 100%;
@@ -605,9 +611,9 @@ body {
 }
 
 .btn-add:hover {
-  border-color: var(--primary);
-  background: var(--primary-dim);
-  color: var(--primary);
+  background: var(--accent-soft);
+  border-color: var(--accent);
+  color: var(--accent-ink);
 }
 
 /* ═══ Loading Spinner ═══════════════════════════════════════════ */
@@ -1391,10 +1397,10 @@ body {
   flex-shrink: 0;
   height: 28px;
   padding: 0 8px;
-  border: 1px solid var(--border-2);
-  border-radius: var(--input-r);
-  background: var(--surface-2);
-  color: var(--text-2);
+  border: 1px solid var(--line);
+  border-radius: var(--radius-input);
+  background: var(--surface);
+  color: var(--ink-2);
   font-size: 10px;
   font-weight: 700;
   letter-spacing: 0.07em;
@@ -1403,15 +1409,13 @@ body {
 }
 
 .currency-toggle:hover:not(:disabled) {
-  border-color: var(--primary);
-  color: var(--primary);
-  background: var(--primary-dim);
+  background: var(--bg-2);
 }
 
 .currency-toggle.active {
-  background: var(--primary);
-  border-color: var(--primary);
-  color: white;
+  background: var(--accent-soft);
+  color: var(--accent-ink);
+  border-color: var(--accent);
 }
 
 .currency-toggle:disabled { opacity: 0.3; cursor: not-allowed; }
