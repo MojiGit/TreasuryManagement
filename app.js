@@ -7,15 +7,18 @@ let lastPoolConfig = [];   // wallet config captured before each /api/pool call
 let lastPoolResult = null; // response from /api/pool
 
 // Chart palette — muted, professional; blues/indigo primary family
+// Ledgerline deterministic wallet palette — Phase 2F
+// Mirrors --wallet-N-dark CSS variables from Phase 0.
 const CHART_COLORS = [
-    '#2563EB', '#0369A1', '#7C3AED', '#0891B2',
-    '#15803D', '#B45309', '#B91C1C', '#4338CA',
-    '#6366F1', '#0284C7', '#059669', '#92400E',
-    '#475569', '#1D4ED8', '#0EA5E9', '#3B82F6',
+    '#7c5cff',  // slot 0 — violet
+    '#34d399',  // slot 1 — emerald
+    '#f59e0b',  // slot 2 — amber
+    '#ec4899',  // slot 3 — pink
+    '#3b82f6',  // slot 4 — blue
 ];
 
-// Master wallet — neutral slate
-const MASTER_CHART_COLOR = '#94A3B8';
+// Master wallet — violet (slot 0, matches --wallet-0-dark)
+const MASTER_CHART_COLOR = '#7c5cff';
 
 // ── Pricing & Metrics ─────────────────────────────────────
 //
@@ -872,9 +875,15 @@ function renderDonutChartTo(svgEl, wallets, total, containerId, {
             // Every wallet has a zero balance for this token — render a neutral
             // full-circle ring so the chart area is never blank.
             svgEl.innerHTML = `
+                <circle cx="${cx}" cy="${cy}" r="${(outerR + innerR) / 2}"
+                    fill="none"
+                    stroke="var(--line-2)"
+                    stroke-width="${outerR - innerR}" />
                 <path d="${donutPath(cx, cy, outerR, innerR, 0, 360)}"
-                    fill="${MASTER_CHART_COLOR}" />
-                <circle cx="${cx}" cy="${cy}" r="${innerR - 1}" fill="#FFFFFF" />
+                    fill="${MASTER_CHART_COLOR}"
+                    opacity="0.25" />
+                <circle cx="${cx}" cy="${cy}" r="${innerR - 1}"
+                    fill="var(--surface)" />
                 <text x="${cx}" y="${cy - 4}" text-anchor="middle"
                     class="chart-center-value">${centerFmt(total)}</text>
                 <text x="${cx}" y="${cy + 14}" text-anchor="middle"
@@ -919,8 +928,13 @@ function renderDonutChartTo(svgEl, wallets, total, containerId, {
     });
 
     svgEl.innerHTML = `
+        <circle cx="${cx}" cy="${cy}" r="${(outerR + innerR) / 2}"
+            fill="none"
+            stroke="var(--line-2)"
+            stroke-width="${outerR - innerR}" />
         ${paths}
-        <circle cx="${cx}" cy="${cy}" r="${innerR - 1}" fill="#FFFFFF" />
+        <circle cx="${cx}" cy="${cy}" r="${innerR - 1}"
+            fill="var(--surface)" />
         <text x="${cx}" y="${cy - 4}" text-anchor="middle"
             class="chart-center-value">${centerFmt(total)}</text>
         <text x="${cx}" y="${cy + 14}" text-anchor="middle"
