@@ -707,16 +707,16 @@ body {
 .master-badge {
   display: inline-flex;
   align-items: center;
-  padding: 1px 7px;
-  border-radius: 2px;
-  font-size: 9px;
-  font-weight: 700;
-  letter-spacing: 0.1em;
+  padding: 2px 8px;
+  border-radius: var(--radius-pill);
+  font-size: 11px;
+  font-weight: 500;
+  letter-spacing: 0.1px;
   text-transform: uppercase;
-  background: var(--primary-dim);
-  color: var(--primary);
+  background: var(--accent-soft);
+  color: var(--accent-ink);
   align-self: flex-start;
-  border: 1px solid color-mix(in oklch, var(--accent) 15%, transparent);
+  border: none;
 }
 
 .master-addr {
@@ -1118,25 +1118,25 @@ body {
 .badge {
   display: inline-flex;
   align-items: center;
-  padding: 1px 7px;
-  border-radius: 2px;
-  font-size: 9.5px;
-  font-weight: 700;
-  letter-spacing: 0.07em;
+  padding: 2px 8px;
+  border-radius: var(--radius-pill);
+  font-size: 11px;
+  font-weight: 500;
+  letter-spacing: 0.1px;
   text-transform: uppercase;
   white-space: nowrap;
 }
 
 .role-master {
-  background: var(--primary-dim);
-  color: var(--primary);
-  border: 1px solid color-mix(in oklch, var(--accent) 18%, transparent);
+  background: var(--accent-soft);
+  color: var(--accent-ink);
+  border: none;
 }
 
 .role-sub {
-  background: var(--surface-3);
-  color: var(--text-2);
-  border: 1px solid var(--border-2);
+  background: var(--bg-2);
+  color: var(--ink-2);
+  border: 1px solid var(--line);
 }
 
 /* ═══ Mode Select & Target Input ════════════════════════════════ */
@@ -1237,16 +1237,16 @@ body {
   display: inline-flex;
   align-items: center;
   padding: 2px 7px;
-  border-radius: 2px;
-  font-size: 10px;
-  font-weight: 700;
-  letter-spacing: 0.04em;
+  border-radius: var(--radius-pill);
+  font-size: 11px;
+  font-weight: 500;
+  letter-spacing: 0.1px;
   white-space: nowrap;
 }
 
-.type-sub-sub    { background: #EEF2FF; color: #4338CA; border: 1px solid #C7D2FE; }
-.type-sub-master { background: var(--amber-dim); color: var(--amber); border: 1px solid #FDE68A; }
-.type-master-sub { background: var(--green-dim); color: var(--green); border: 1px solid #BBF7D0; }
+.type-sub-sub    { background: var(--accent-soft); color: var(--accent-ink); border: none; }
+.type-sub-master { background: var(--amber-dim); color: var(--amber); border: none; }
+.type-master-sub { background: var(--green-dim); color: var(--green); border: none; }
 
 /* ═══ Empty State ════════════════════════════════════════════════ */
 .empty-row td {
@@ -1281,7 +1281,7 @@ body {
 .after-badge {
   background: var(--green-dim) !important;
   color: var(--green) !important;
-  border-color: rgba(21, 128, 61, 0.2) !important;
+  border: none !important;
 }
 
 /* Delta on master hero */
@@ -1306,18 +1306,19 @@ body {
 .delta-pill {
   display: inline-flex;
   align-items: center;
-  padding: 1px 6px;
-  border-radius: 2px;
+  padding: 2px 8px;
+  border-radius: var(--radius-pill);
   font-family: var(--font-mono);
   font-variant-numeric: tabular-nums;
   font-feature-settings: "tnum", "zero";
-  font-size: 10px;
-  font-weight: 700;
+  font-size: 11px;
+  font-weight: 500;
+  letter-spacing: 0.1px;
   white-space: nowrap;
 }
 
-.delta-pill.up   { background: var(--green-dim); color: var(--green); border: 1px solid #BBF7D0; }
-.delta-pill.down { background: var(--red-dim);   color: var(--red);   border: 1px solid #FECACA; }
+.delta-pill.up   { background: var(--green-dim); color: var(--green); border: none; }
+.delta-pill.down { background: var(--red-dim);   color: var(--red);   border: none; }
 .delta-pill.flat { color: var(--text-3); }
 
 /* ═══ Wallet Identity (label + address) ════════════════════════ */
@@ -1358,17 +1359,17 @@ body {
 .token-badge {
   display: inline-flex;
   align-items: center;
-  padding: 1px 6px;
-  border-radius: 2px;
-  font-size: 9.5px;
-  font-weight: 700;
-  letter-spacing: 0.07em;
+  padding: 2px 8px;
+  border-radius: var(--radius-pill);
+  font-size: 11px;
+  font-weight: 500;
+  letter-spacing: 0.1px;
   text-transform: uppercase;
   white-space: nowrap;
 }
 
-.token-eth  { background: #EEF2FF; color: #4338CA; border: 1px solid #C7D2FE; }
-.token-usdt { background: var(--green-dim); color: var(--green); border: 1px solid #BBF7D0; }
+.token-eth  { background: var(--accent-soft); color: var(--accent-ink); border: none; }
+.token-usdt { background: var(--green-dim); color: var(--green); border: none; }
 
 /* ═══ USDT Balance Lines ═════════════════════════════════════════ */
 .master-usdt-bal {
