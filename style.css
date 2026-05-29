@@ -121,10 +121,6 @@
   --t:               0.1s ease;
   --t-slow:          0.18s ease;
 
-  /* Topbar — map to Ledgerline ink (dark surface)               */
-  --topbar-bg:       var(--ink);
-  --topbar-border:   var(--ink-2);
-
   /* Layout                                                      */
   --max-w:           1120px;
 }
@@ -245,26 +241,6 @@ body {
 
 /* ═══ App Shell ══════════════════════════════════════════════════ */
 .app { display: flex; flex-direction: column; min-height: 100vh; }
-
-/* ═══ Topbar ═════════════════════════════════════════════════════ */
-.topbar {
-  background: var(--topbar-bg);
-  border-bottom: 1px solid var(--topbar-border);
-  position: sticky;
-  top: 0;
-  z-index: 100;
-}
-
-.topbar-inner {
-  max-width: var(--max-w);
-  margin: 0 auto;
-  padding: 0 28px;
-  height: 52px;
-  display: flex;
-  align-items: center;
-}
-
-.topbar-brand { display: flex; align-items: center; gap: 10px; }
 
 .brand-mark {
   width: 28px;
@@ -1592,7 +1568,7 @@ body {
 /* ═══ Responsive ═════════════════════════════════════════════════ */
 @media (max-width: 720px) {
   .main-content   { padding: 14px 14px 48px; }
-  .topbar-inner, .steps-inner { padding: 0 14px; }
+  .steps-inner { padding: 0 14px; }
   .card-header, .card-body { padding-left: 16px; padding-right: 16px; }
   .setup-grid     { grid-template-columns: 1fr; gap: 16px; }
   .portfolio-body { grid-template-columns: 1fr; }
@@ -1913,4 +1889,143 @@ body {
 #portfolio-usd-chart {
   width: 160px;
   height: 160px;
+}
+
+/* ══════════════════════════════════════════════════════════
+   LEDGERLINE — Phase 3C: Wallets table
+   ══════════════════════════════════════════════════════════ */
+
+.wallets-table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 13px;
+}
+
+.wallets-table thead tr {
+  border-top: 1px solid var(--line);
+  border-bottom: 1px solid var(--line);
+}
+
+.wallets-table th {
+  font-size: 11px;
+  font-weight: 500;
+  letter-spacing: 0.35px;
+  text-transform: uppercase;
+  color: var(--muted);
+  background: var(--bg-2);
+  padding: 9px 14px;
+}
+
+.wallets-table td {
+  padding: var(--pad-row) 14px;
+  border-bottom: 1px solid var(--line-2);
+  color: var(--ink);
+  vertical-align: middle;
+}
+
+.wallets-table tbody tr:last-child td {
+  border-bottom: none;
+}
+
+/* Master row treatment */
+.wt-row-master td {
+  background: linear-gradient(90deg,
+    oklch(0.985 0.015 285), transparent 70%);
+}
+.wt-row-master td:first-child {
+  border-left: 3px solid var(--accent);
+}
+
+/* Row hover */
+.wt-row {
+  transition: background var(--t);
+  cursor: default;
+}
+.wt-row:hover td {
+  background: var(--bg-2);
+}
+.wt-row-master:hover td {
+  background: linear-gradient(90deg,
+    oklch(0.98 0.02 285), var(--bg-2) 70%);
+}
+
+/* Wallet identity column */
+.wt-col-wallet {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  min-width: 160px;
+}
+.wt-dot {
+  width: 10px;
+  height: 10px;
+  border-radius: 3px;
+  flex-shrink: 0;
+}
+.wt-identity {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  min-width: 0;
+}
+.wt-name {
+  font-size: 13px;
+  font-weight: 500;
+  color: var(--ink);
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+.wt-addr {
+  font-family: 'Geist Mono', ui-monospace, monospace;
+  font-size: 11px;
+  color: var(--muted);
+  font-variant-numeric: tabular-nums;
+}
+
+/* Numeric columns */
+.wt-col-num {
+  text-align: right;
+  font-family: 'Geist Mono', ui-monospace, monospace;
+  font-variant-numeric: tabular-nums;
+  white-space: nowrap;
+}
+.wt-bal {
+  font-weight: 500;
+  color: var(--ink);
+}
+.wt-usd {
+  font-size: 11px;
+  color: var(--muted);
+}
+.wt-col-value {
+  font-weight: 500;
+}
+
+/* % of book column */
+.wt-col-book {
+  white-space: nowrap;
+  min-width: 80px;
+}
+.wt-book-bar-wrap {
+  display: inline-block;
+  width: 60px;
+  height: 4px;
+  background: var(--bg-2);
+  border-radius: 2px;
+  vertical-align: middle;
+  margin-right: 6px;
+}
+.wt-book-bar {
+  height: 100%;
+  background: var(--accent);
+  border-radius: 2px;
+  max-width: 100%;
+}
+.wt-book-pct {
+  font-family: 'Geist Mono', ui-monospace, monospace;
+  font-size: 12px;
+  color: var(--muted);
+  font-variant-numeric: tabular-nums;
+  vertical-align: middle;
 }

@@ -1099,87 +1099,178 @@ function displayPortfolio(data) {
         ? (master.usdt_balance / pm.totalUsdt * 100).toFixed(1) : '0';
 
     document.getElementById('master-overview').innerHTML = `
-        <div class="master-header">
-            <div class="master-identity">
-                <span class="master-badge">Master Wallet</span>
-                <div class="master-addr">${masterShort}</div>
+    <table class="wallets-table" id="wallets-table">
+      <thead>
+        <tr>
+          <th class="wt-col-wallet">Wallet</th>
+          <th class="wt-col-num">ETH</th>
+          <th class="wt-col-num">USDT</th>
+          <th class="wt-col-num">Value</th>
+          <th class="wt-col-book">% of book</th>
+        </tr>
+      </thead>
+      <tbody id="wallets-tbody">
+        <tr class="wt-row wt-row-master"
+            data-address="${master.address}">
+          <td class="wt-col-wallet">
+            <span class="wt-dot"
+                  style="background:${MASTER_CHART_COLOR}"></span>
+            <span class="wt-identity">
+              <span class="wt-name">
+                ${master.label
+                  ? master.label
+                  : 'Master Wallet'}
+                <span class="master-badge">★ MASTER</span>
+              </span>
+              <span class="wt-addr">${
+                master.address.slice(0,6) + '…' +
+                master.address.slice(-4)
+              }</span>
+            </span>
+          </td>
+          <td class="wt-col-num">
+            <span class="wt-bal">${masterBal}</span>
+            ${master.eth_usd != null
+              ? '<br><span class="wt-usd">' +
+                fmtDollars(master.eth_usd) + '</span>'
+              : ''}
+          </td>
+          <td class="wt-col-num">
+            <span class="wt-bal">${
+              (master.usdt_balance ?? 0).toFixed(2)
+            }</span>
+            ${master.usdt_usd != null
+              ? '<br><span class="wt-usd">' +
+                fmtDollars(master.usdt_usd) + '</span>'
+              : ''}
+          </td>
+          <td class="wt-col-num wt-col-value">
+            ${master.total_usd != null
+              ? fmtDollars(master.total_usd)
+              : '—'}
+          </td>
+          <td class="wt-col-book">
+            <div class="wt-book-bar-wrap">
+              <div class="wt-book-bar"
+                   style="width:${
+                     pm.totalUsd > 0 && master.total_usd != null
+                       ? Math.min(100,
+                           master.total_usd / pm.totalUsd * 100
+                         ).toFixed(1)
+                       : 0
+                   }%"></div>
             </div>
-            ${master.total_usd != null ? `
-            <div class="master-total-usd">
-                <span class="master-total-value">${fmtDollars(master.total_usd)}</span>
-                <span class="master-total-label">USD</span>
-            </div>` : ''}
-        </div>
-        <div class="master-metrics-row">
-            <div class="master-metric">
-                <div class="master-metric-balance">${masterBal} <span class="master-metric-unit">ETH</span></div>
-                ${master.eth_usd != null ? `<div class="master-metric-usd">${fmtDollars(master.eth_usd)} USD</div>` : ''}
-                <div class="master-metric-share">${masterEthPct}% of ETH portfolio</div>
-            </div>
-            <div class="master-metric">
-                <div class="master-metric-balance">${(master.usdt_balance ?? 0).toFixed(2)} <span class="master-metric-unit">USDT</span></div>
-                ${master.usdt_usd != null ? `<div class="master-metric-usd">${fmtDollars(master.usdt_usd)} USD</div>` : ''}
-                <div class="master-metric-share">${masterUsdtPct}% of USDT portfolio</div>
-            </div>
-        </div>`;
+            <span class="wt-book-pct">${
+              pm.totalUsd > 0 && master.total_usd != null
+                ? (master.total_usd / pm.totalUsd * 100)
+                    .toFixed(1) + '%'
+                : '—'
+            }</span>
+          </td>
+        </tr>
+      </tbody>
+    </table>`;
     const masterOverviewEl = document.getElementById('master-overview');
     masterOverviewEl.classList.remove('hidden');
     masterOverviewEl.dataset.address = master.address;  // enables chart hover interaction
 
-    // ── Sub-accounts list ─────────────────────────────────
-    const panel = document.getElementById('sub-accounts-panel');
-    if (subs.length === 0) {
-        panel.innerHTML = `<p style="color:var(--text-2);font-size:13px;">No sub-accounts loaded.</p>`;
-    } else {
-        panel.innerHTML = `
-            <div class="accounts-header">
-                Sub-Accounts <span class="accounts-count">${subs.length}</span>
-            </div>
-            ${subs.map(w => {
-                const ethPct        = pm.totalEth  > 0 && !w.error
-                    ? (w.balance      / pm.totalEth  * 100).toFixed(1) : '0';
-                const usdtPct       = pm.totalUsdt > 0 && !w.error
-                    ? (w.usdt_balance / pm.totalUsdt * 100).toFixed(1) : '0';
-                const portfolioPct  = pm.totalUsd  > 0 && w.total_usd != null
-                    ? (w.total_usd   / pm.totalUsd  * 100).toFixed(1)
-                    : ethPct; // fallback to ETH share when price unavailable
+    // ── Phase 3C: Sub-wallet rows appended to wallets table ──
+    const tbody = document.getElementById('wallets-tbody');
+    if (tbody) {
+      if (subs.length === 0) {
+        const tr = document.createElement('tr');
+        tr.innerHTML = `<td colspan="5"
+          style="color:var(--muted);font-size:13px;
+                 padding:12px 16px;">
+          No sub-wallets loaded.</td>`;
+        tbody.appendChild(tr);
+      } else {
+        subs.forEach(w => {
+          const ethPct = pm.totalEth > 0 && !w.error
+            ? (w.balance / pm.totalEth * 100).toFixed(1) : '0';
+          const usdtPct = pm.totalUsdt > 0 && !w.error
+            ? (w.usdt_balance / pm.totalUsdt * 100).toFixed(1)
+            : '0';
+          const bookPct = pm.totalUsd > 0 && w.total_usd != null
+            ? (w.total_usd / pm.totalUsd * 100).toFixed(1)
+            : ethPct;
+          const bookPctNum = pm.totalUsd > 0 && w.total_usd != null
+            ? Math.min(100,
+                w.total_usd / pm.totalUsd * 100
+              ).toFixed(1)
+            : 0;
 
-                if (w.error) return `
-                    <div class="account-row" data-address="${w.address}">
-                        <div class="account-dot" style="background:${w._color};"></div>
-                        <div class="account-body">
-                            <div class="account-addr">${walletIdHtml(w)}</div>
-                            <div style="font-size:11px;color:var(--red);margin-top:4px;">${w.error}</div>
-                        </div>
-                    </div>`;
+          const tr = document.createElement('tr');
+          tr.className = 'wt-row';
+          tr.dataset.address = w.address;
 
-                return `
-                    <div class="account-row" data-address="${w.address}">
-                        <div class="account-dot" style="background:${w._color};"></div>
-                        <div class="account-body">
-                            <div class="account-addr">${walletIdHtml(w)}</div>
-                            <div class="account-metrics">
-                                <div class="account-metric">
-                                    <div class="account-metric-bal">${w.balance.toFixed(4)} <span class="account-metric-unit">ETH</span></div>
-                                    ${w.eth_usd != null ? `<div class="account-metric-usd">${fmtDollars(w.eth_usd)} USD</div>` : ''}
-                                    <div class="account-metric-share">${ethPct}% of ETH portfolio</div>
-                                </div>
-                                <div class="account-metric">
-                                    <div class="account-metric-bal">${(w.usdt_balance ?? 0).toFixed(2)} <span class="account-metric-unit">USDT</span></div>
-                                    ${w.usdt_usd != null ? `<div class="account-metric-usd">${fmtDollars(w.usdt_usd)} USD</div>` : ''}
-                                    <div class="account-metric-share">${usdtPct}% of USDT portfolio</div>
-                                </div>
-                                <div class="account-metric">
-                                    ${w.total_usd != null
-                                        ? `<div class="account-total-value">${fmtDollars(w.total_usd)}<span class="account-total-label"> USD</span></div>`
-                                        : `<div class="account-total-value">—</div>`}
-                                    <div class="account-metric-share">${portfolioPct}% of portfolio</div>
-                                </div>
-                            </div>
-                        </div>
-                    </div>`;
-            }).join('')}`;
+          if (w.error) {
+            tr.innerHTML = `
+              <td class="wt-col-wallet">
+                <span class="wt-dot"
+                      style="background:${w._color}"></span>
+                <span class="wt-identity">
+                  <span class="wt-name">${
+                    walletIdHtml(w)
+                  }</span>
+                </span>
+              </td>
+              <td colspan="4"
+                  style="color:var(--negative);
+                         font-size:11px;">
+                ${w.error}
+              </td>`;
+          } else {
+            tr.innerHTML = `
+              <td class="wt-col-wallet">
+                <span class="wt-dot"
+                      style="background:${w._color}"></span>
+                <span class="wt-identity">
+                  <span class="wt-name">${
+                    w.label || ''
+                  }</span>
+                  <span class="wt-addr">${
+                    w.address.slice(0,6) + '…' +
+                    w.address.slice(-4)
+                  }</span>
+                </span>
+              </td>
+              <td class="wt-col-num">
+                <span class="wt-bal">${
+                  w.balance.toFixed(4)
+                }</span>
+                ${w.eth_usd != null
+                  ? '<br><span class="wt-usd">' +
+                    fmtDollars(w.eth_usd) + '</span>'
+                  : ''}
+              </td>
+              <td class="wt-col-num">
+                <span class="wt-bal">${
+                  (w.usdt_balance ?? 0).toFixed(2)
+                }</span>
+                ${w.usdt_usd != null
+                  ? '<br><span class="wt-usd">' +
+                    fmtDollars(w.usdt_usd) + '</span>'
+                  : ''}
+              </td>
+              <td class="wt-col-num wt-col-value">${
+                w.total_usd != null
+                  ? fmtDollars(w.total_usd) : '—'
+              }</td>
+              <td class="wt-col-book">
+                <div class="wt-book-bar-wrap">
+                  <div class="wt-book-bar"
+                       style="width:${bookPctNum}%"></div>
+                </div>
+                <span class="wt-book-pct">${bookPct}%</span>
+              </td>`;
+          }
+          tbody.appendChild(tr);
+        });
+      }
     }
+    // ── /Phase 3C ─────────────────────────────────────────────
+    document.getElementById('sub-accounts-panel').innerHTML = '';
 
     // ── ETH donut ─────────────────────────────────────────
     renderDonutChartTo(
