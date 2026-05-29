@@ -20,6 +20,36 @@ const CHART_COLORS = [
 // Master wallet — violet (slot 0, matches --wallet-0-dark)
 const MASTER_CHART_COLOR = '#7c5cff';
 
+// ── Phase 3C-Hover-Fix: Shared chart highlight state ─────────
+let _activeHoverAddress = null;
+
+function _highlightAddress(address) {
+  _activeHoverAddress = address;
+
+  // Highlight all chart slices across all 6 charts
+  document.querySelectorAll('.chart-slice').forEach(p => {
+    p.style.opacity = p.dataset.address === address
+      ? '1' : '0.18';
+  });
+
+  // Highlight matching table rows, fade others
+  document.querySelectorAll('.wt-row').forEach(el => {
+    el.style.opacity = el.dataset.address === address
+      ? '1' : '0.25';
+  });
+}
+
+function _clearHighlight() {
+  _activeHoverAddress = null;
+  document.querySelectorAll('.chart-slice').forEach(p => {
+    p.style.opacity = '';
+  });
+  document.querySelectorAll('.wt-row').forEach(el => {
+    el.style.opacity = '';
+  });
+}
+// ── /Phase 3C-Hover-Fix ───────────────────────────────────────
+
 // ── Pricing & Metrics ─────────────────────────────────────
 //
 let ethUsdPrice      = null;
@@ -967,54 +997,30 @@ function renderDonutChartTo(svgEl, wallets, total, containerId, {
         <text x="${cx}" y="${cy + 14}" text-anchor="middle"
             class="chart-center-label">${centerLabel}</text>`;
 
-    // Hover: highlight matching slice + wallet cards (bidirectional, including master)
-    const rowSel = `#${containerId} .account-row`;
-
-    // Map each sub-accounts container to its corresponding master overview element.
-    // The master card carries data-address so it participates in the same interaction.
-    const masterIdMap = {
-        'sub-accounts-panel': 'master-overview',
-        'after-sub-accounts': 'after-master-overview',
-    };
-    const masterEl = document.getElementById(masterIdMap[containerId] ?? '');
-
-    // Returns all interactive wallet elements: sub rows + master card.
-    const allWalletEls = () => [
-        ...document.querySelectorAll(rowSel),
-        ...(masterEl?.dataset.address ? [masterEl] : []),
-    ];
-
+    // ── Phase 3C-Hover-Fix: use shared coordinator ────────────
     svgEl.querySelectorAll('.chart-slice').forEach(path => {
         path.addEventListener('mouseenter', () => {
-            const addr = path.dataset.address;
-            svgEl.querySelectorAll('.chart-slice').forEach(p => {
-                p.style.opacity = p.dataset.address === addr ? '1' : '0.2';
-            });
-            allWalletEls().forEach(el => {
-                el.style.opacity = el.dataset.address === addr ? '1' : '0.25';
-            });
+            _highlightAddress(path.dataset.address);
         });
         path.addEventListener('mouseleave', () => {
-            svgEl.querySelectorAll('.chart-slice').forEach(p => { p.style.opacity = ''; });
-            allWalletEls().forEach(el => { el.style.opacity = ''; });
+            _clearHighlight();
         });
     });
 
-    allWalletEls().forEach(el => {
-        el.addEventListener('mouseenter', () => {
-            const addr = el.dataset.address;
-            svgEl.querySelectorAll('.chart-slice').forEach(p => {
-                p.style.opacity = p.dataset.address === addr ? '1' : '0.2';
-            });
-            allWalletEls().forEach(e => {
-                e.style.opacity = e.dataset.address === addr ? '1' : '0.25';
-            });
-        });
-        el.addEventListener('mouseleave', () => {
-            svgEl.querySelectorAll('.chart-slice').forEach(p => { p.style.opacity = ''; });
-            allWalletEls().forEach(e => { e.style.opacity = ''; });
-        });
+    document.querySelectorAll('.wt-row').forEach(el => {
+        // Remove any previously attached listener to prevent
+        // duplicates across 6 chart render calls
+        el.removeEventListener('mouseenter', el._hoverEnter);
+        el.removeEventListener('mouseleave', el._hoverLeave);
+
+        el._hoverEnter = () => _highlightAddress(el.dataset.address);
+        el._hoverLeave = () => _clearHighlight();
+
+        el.addEventListener('mouseenter', el._hoverEnter);
+        el.addEventListener('mouseleave', el._hoverLeave);
     });
+    // ── /Phase 3C-Hover-Fix ────────────────────────────────────
+
     // Non-zero charts are never permanently dimmed; clear any opacity left from a prior
     // zero-total render of the same SVG element.
     svgEl.style.opacity = '';

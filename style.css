@@ -1941,10 +1941,10 @@ body {
   transition: background var(--t);
   cursor: default;
 }
-.wt-row:hover td {
+.wt-row:not([style*="opacity: 0.25"]):hover td {
   background: var(--bg-2);
 }
-.wt-row-master:hover td {
+.wt-row-master:not([style*="opacity: 0.25"]):hover td {
   background: linear-gradient(90deg,
     oklch(0.98 0.02 285), var(--bg-2) 70%);
 }
