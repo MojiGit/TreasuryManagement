@@ -1005,6 +1005,57 @@ function displayPortfolio(data) {
     // Portfolio-level aggregates — single source of truth.
     const pm = portfolioMetrics(loadedWallets);
 
+    // ── Phase 3A: Hero stats row ──────────────────────────────
+    (function renderHeroStats() {
+      const heroEl = document.getElementById('portfolio-hero');
+      if (!heroEl) return;
+
+      const totalVal  = pm.totalUsd != null
+        ? fmtUsdCompact(pm.totalUsd) : '—';
+      const ethVal    = pm.totalEth.toFixed(2);
+      const ethUsd    = pm.totalEthUsd != null
+        ? fmtUsdCompact(pm.totalEthUsd) : null;
+      const usdtVal   = pm.totalUsdt.toLocaleString('en-US',
+        { maximumFractionDigits: 0 });
+      const usdtUsd   = pm.totalUsdtUsd != null
+        ? fmtUsdCompact(pm.totalUsdtUsd) : null;
+      const walletCount = loadedWallets.length;
+      const syncAge = (() => {
+        if (!pricesFetchedAt) return 'just now';
+        const s = Math.round((Date.now() - pricesFetchedAt) / 1000);
+        if (s < 60) return s + 's ago';
+        const m = Math.floor(s / 60);
+        if (m < 60) return m + 'm ago';
+        const h = Math.floor(m / 60), rm = m % 60;
+        return h + 'h ' + rm + 'm ago';
+      })();
+
+      heroEl.innerHTML = `
+        <div class="hero-card">
+          <div class="hero-card-glow"></div>
+          <div class="hero-label">TOTAL PORTFOLIO VALUE</div>
+          <div class="hero-value">${totalVal}</div>
+          <div class="hero-sub">${walletCount} wallet${walletCount !== 1 ? 's' : ''} · last sync ${syncAge}</div>
+        </div>
+        <div class="side-stat-card">
+          <div class="side-stat-label">ETH HOLDINGS</div>
+          <div class="side-stat-value">
+            ${ethVal} <span class="side-stat-unit">ETH</span>
+          </div>
+          ${ethUsd ? `<div class="side-stat-usd">${ethUsd}</div>` : ''}
+        </div>
+        <div class="side-stat-card">
+          <div class="side-stat-label">USDT RESERVES</div>
+          <div class="side-stat-value">
+            ${usdtVal} <span class="side-stat-unit">USDT</span>
+          </div>
+          ${usdtUsd ? `<div class="side-stat-usd">${usdtUsd}</div>` : ''}
+        </div>`;
+
+      heroEl.classList.remove('hidden');
+    })();
+    // ── /Phase 3A ─────────────────────────────────────────────
+
     // Master panel values.
     const masterShort    = master.address.slice(0,6) + '...' + master.address.slice(-4);
     const masterBal      = master.error ? 'Error' : master.balance.toFixed(4);

@@ -1717,3 +1717,101 @@ body {
 
 .tab-panel              { display: none; }
 .tab-panel.is-active    { display: block; }
+
+/* ══════════════════════════════════════════════════════════
+   LEDGERLINE — Phase 3A: Hero stats row
+   ══════════════════════════════════════════════════════════ */
+
+.portfolio-hero {
+  display: grid;
+  grid-template-columns: 1.4fr 1fr 1fr;
+  gap: 16px;
+  margin-bottom: 24px;
+}
+
+/* Hero card — gradient with radial glow */
+.hero-card {
+  position: relative;
+  overflow: hidden;
+  background: var(--hero-gradient);
+  border: 1px solid var(--line);
+  border-radius: var(--radius-card);
+  box-shadow: var(--shadow-sm);
+  padding: 24px;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+.hero-card-glow {
+  position: absolute;
+  top: -40px; right: -40px;
+  width: 220px; height: 220px;
+  border-radius: 50%;
+  background: radial-gradient(
+    circle,
+    oklch(0.85 0.1 285 / 0.25),
+    transparent 60%
+  );
+  pointer-events: none;
+}
+.hero-label {
+  font-size: 10.5px;
+  font-weight: 500;
+  letter-spacing: 0.5px;
+  text-transform: uppercase;
+  color: var(--muted);
+}
+.hero-value {
+  font-family: 'Geist Mono', ui-monospace, monospace;
+  font-size: 40px;
+  font-weight: 600;
+  letter-spacing: -1px;
+  line-height: 1;
+  color: var(--ink);
+  font-variant-numeric: tabular-nums;
+  margin-top: 4px;
+}
+.hero-sub {
+  font-size: 12px;
+  color: var(--muted);
+  margin-top: 6px;
+}
+
+/* Side stat cards */
+.side-stat-card {
+  background: var(--surface);
+  border: 1px solid var(--line);
+  border-radius: var(--radius-card);
+  box-shadow: var(--shadow-sm);
+  padding: 20px;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+.side-stat-label {
+  font-size: 11.5px;
+  font-weight: 500;
+  letter-spacing: 0.4px;
+  text-transform: uppercase;
+  color: var(--muted);
+}
+.side-stat-value {
+  font-family: 'Geist Mono', ui-monospace, monospace;
+  font-size: 24px;
+  font-weight: 600;
+  color: var(--ink);
+  font-variant-numeric: tabular-nums;
+  margin-top: 4px;
+}
+.side-stat-unit {
+  font-size: 12px;
+  font-weight: 500;
+  color: var(--muted);
+  margin-left: 4px;
+}
+.side-stat-usd {
+  font-family: 'Geist Mono', ui-monospace, monospace;
+  font-size: 12px;
+  color: var(--muted);
+  font-variant-numeric: tabular-nums;
+}
