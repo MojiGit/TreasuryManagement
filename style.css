@@ -1815,3 +1815,102 @@ body {
   color: var(--muted);
   font-variant-numeric: tabular-nums;
 }
+
+/* ══════════════════════════════════════════════════════════
+   LEDGERLINE — Phase 3B: Donut cards + legends
+   ══════════════════════════════════════════════════════════ */
+
+.donut-row {
+  display: grid;
+  grid-template-columns: 1fr 1fr 1fr;
+  gap: 16px;
+  margin-bottom: 24px;
+}
+
+.donut-card {
+  background: var(--surface);
+  border: 1px solid var(--line);
+  border-radius: var(--radius-card);
+  box-shadow: var(--shadow-sm);
+  padding: 18px 22px 20px;
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.donut-card-header {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+.donut-card-title {
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--ink);
+}
+.donut-card-sub {
+  font-size: 12px;
+  color: var(--muted);
+}
+
+.donut-chart-wrap {
+  display: flex;
+  justify-content: center;
+}
+.donut-chart-wrap svg {
+  width: 160px;
+  height: 160px;
+}
+
+.donut-legend {
+  display: flex;
+  flex-direction: column;
+  border-top: 1px solid var(--line-2);
+  padding-top: 8px;
+}
+.donut-legend-row {
+  display: grid;
+  grid-template-columns: 10px minmax(0, 1fr) auto auto;
+  gap: 10px;
+  align-items: center;
+  padding: 7px 0;
+  border-bottom: 1px dashed var(--line-2);
+}
+.donut-legend-row:last-child {
+  border-bottom: none;
+}
+.donut-legend-swatch {
+  width: 10px;
+  height: 10px;
+  border-radius: 3px;
+  flex-shrink: 0;
+}
+.donut-legend-label {
+  font-size: 11px;
+  font-weight: 500;
+  color: var(--ink-2);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.donut-legend-pct {
+  font-family: 'Geist Mono', ui-monospace, monospace;
+  font-size: 11px;
+  color: var(--muted);
+  font-variant-numeric: tabular-nums;
+}
+.donut-legend-val {
+  font-family: 'Geist Mono', ui-monospace, monospace;
+  font-size: 11px;
+  font-weight: 500;
+  color: var(--ink);
+  font-variant-numeric: tabular-nums;
+}
+
+/* Remove old chart-panel sizing now replaced by donut-row */
+#portfolio-chart,
+#portfolio-usdt-chart,
+#portfolio-usd-chart {
+  width: 160px;
+  height: 160px;
+}

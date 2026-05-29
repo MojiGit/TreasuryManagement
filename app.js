@@ -836,6 +836,33 @@ function fmtEth(val) {
     return val.toFixed(4);
 }
 
+// ── Phase 3B: Donut legend renderer ──────────────────────────
+function renderDonutLegend(legendElId, wallets, total, balanceKey,
+                           fmtVal) {
+  const el = document.getElementById(legendElId);
+  if (!el) return;
+  const items = wallets
+    .filter(w => !w.error && (w[balanceKey] ?? 0) > 0)
+    .sort((a, b) => (b[balanceKey] ?? 0) - (a[balanceKey] ?? 0));
+  if (items.length === 0) { el.innerHTML = ''; return; }
+  el.innerHTML = items.map(w => {
+    const val  = w[balanceKey] ?? 0;
+    const pct  = total > 0 ? (val / total * 100).toFixed(1) : '0.0';
+    const color = w.role === 'master' ? MASTER_CHART_COLOR : w._color;
+    const label = w.label || (w.address.slice(0,6) + '…' +
+                  w.address.slice(-4));
+    return `
+      <div class="donut-legend-row">
+        <span class="donut-legend-swatch"
+              style="background:${color}"></span>
+        <span class="donut-legend-label">${label}</span>
+        <span class="donut-legend-pct">${pct}%</span>
+        <span class="donut-legend-val">${fmtVal(val)}</span>
+      </div>`;
+  }).join('');
+}
+// ── /Phase 3B ─────────────────────────────────────────────────
+
 /**
  * Render a donut chart into svgEl.
  *
@@ -1056,6 +1083,13 @@ function displayPortfolio(data) {
     })();
     // ── /Phase 3A ─────────────────────────────────────────────
 
+    // Phase 3B: Update donut subtitles with live wallet count
+    const walletCountStr = `Across ${loadedWallets.length} wallet${loadedWallets.length !== 1 ? 's' : ''}`;
+    document.querySelectorAll('.donut-card-sub').forEach(el => {
+      if (el.textContent.startsWith('Across'))
+        el.textContent = walletCountStr;
+    });
+
     // Master panel values.
     const masterShort    = master.address.slice(0,6) + '...' + master.address.slice(-4);
     const masterBal      = master.error ? 'Error' : master.balance.toFixed(4);
@@ -1155,6 +1189,8 @@ function displayPortfolio(data) {
         'sub-accounts-panel'
         // defaults: balanceKey='balance', centerLabel='ETH'
     );
+    renderDonutLegend('legend-eth', loadedWallets,
+        pm.totalEth, 'balance', v => v.toFixed(4) + ' ETH');
 
     // ── USDT donut ────────────────────────────────────────
     renderDonutChartTo(
@@ -1168,6 +1204,10 @@ function displayPortfolio(data) {
             centerFmt:   v => fmtUsdt(v) ?? '0.00',
         }
     );
+    renderDonutLegend('legend-usdt', loadedWallets,
+        pm.totalUsdt, 'usdt_balance',
+        v => v.toLocaleString('en-US',
+          { maximumFractionDigits: 0 }) + ' USDT');
 
     // ── USD donut (only when ETH price is available) ──────
     if (pm.totalUsd != null) {
@@ -1182,9 +1222,13 @@ function displayPortfolio(data) {
                 centerFmt:   fmtUsdCompact,
             }
         );
+        renderDonutLegend('legend-usd', loadedWallets,
+            pm.totalUsd, 'total_usd', fmtUsdCompact);
     } else {
         const el = document.getElementById('portfolio-usd-chart');
         if (el) el.innerHTML = '';   // clear stale content
+        const legendUsd = document.getElementById('legend-usd');
+        if (legendUsd) legendUsd.innerHTML = '';
     }
 
     // ── Pricing legend ────────────────────────────────────

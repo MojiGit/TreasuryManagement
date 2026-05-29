@@ -128,19 +128,44 @@
                 <div class="card-body">
                     <div id="portfolio-hero" class="portfolio-hero hidden"></div>
                     <div id="master-overview" class="master-overview hidden"></div>
-                    <div class="chart-panel">
-                        <div class="chart-item">
-                            <svg id="portfolio-chart" viewBox="0 0 200 200"
-                                xmlns="http://www.w3.org/2000/svg"></svg>
+                    <div class="donut-row">
+
+                        <div class="donut-card">
+                            <div class="donut-card-header">
+                                <div class="donut-card-title">ETH distribution</div>
+                                <div class="donut-card-sub">Across wallets</div>
+                            </div>
+                            <div class="donut-chart-wrap">
+                                <svg id="portfolio-chart" viewBox="0 0 200 200"
+                                    xmlns="http://www.w3.org/2000/svg"></svg>
+                            </div>
+                            <div id="legend-eth" class="donut-legend"></div>
                         </div>
-                        <div class="chart-item">
-                            <svg id="portfolio-usdt-chart" viewBox="0 0 200 200"
-                                xmlns="http://www.w3.org/2000/svg"></svg>
+
+                        <div class="donut-card">
+                            <div class="donut-card-header">
+                                <div class="donut-card-title">USDT distribution</div>
+                                <div class="donut-card-sub">Across wallets</div>
+                            </div>
+                            <div class="donut-chart-wrap">
+                                <svg id="portfolio-usdt-chart" viewBox="0 0 200 200"
+                                    xmlns="http://www.w3.org/2000/svg"></svg>
+                            </div>
+                            <div id="legend-usdt" class="donut-legend"></div>
                         </div>
-                        <div class="chart-item">
-                            <svg id="portfolio-usd-chart" viewBox="0 0 200 200"
-                                xmlns="http://www.w3.org/2000/svg"></svg>
+
+                        <div class="donut-card">
+                            <div class="donut-card-header">
+                                <div class="donut-card-title">Allocation</div>
+                                <div class="donut-card-sub">Portfolio mix by asset</div>
+                            </div>
+                            <div class="donut-chart-wrap">
+                                <svg id="portfolio-usd-chart" viewBox="0 0 200 200"
+                                    xmlns="http://www.w3.org/2000/svg"></svg>
+                            </div>
+                            <div id="legend-usd" class="donut-legend"></div>
                         </div>
+
                     </div>
                     <div id="sub-accounts-panel" class="accounts-panel"></div>
                     <div id="portfolio-pricing-legend" class="pricing-legend hidden"></div>
