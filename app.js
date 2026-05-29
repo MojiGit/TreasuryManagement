@@ -98,6 +98,10 @@ function initTabs() {
     if (saved && TAB_IDS.includes(saved)) initial = saved;
   } catch (e) {}
   activateTab(initial);
+  document.getElementById('ab-cancel-btn')
+    ?.addEventListener('click', _hideAddForm);
+  document.getElementById('ab-save-btn')
+    ?.addEventListener('click', _saveAddForm);
 }
 
 function _twoDigit(n) { return String(n).padStart(2, '0'); }
@@ -414,20 +418,199 @@ function updateSubwalletCounter() {
     if (btn)     btn.disabled = n >= 15;
 }
 
+// ── Phase 4-REDO-B: Address book interactions ─────────────────
+
+// Opens the inline add form; called by #add-subwallet click.
 function addSubwallet() {
-    const list = document.getElementById('subwallet-list');
-    const row  = document.createElement('div');
-    row.className = 'subwallet-row';
-    row.innerHTML = `
-        <input type="text" placeholder="Label (optional)" class="sub-label"
-            autocomplete="off" spellcheck="false" maxlength="30" />
-        <input type="text" placeholder="0x..." class="sub-address"
-            autocomplete="off" spellcheck="false" />
-        <button class="btn-remove" onclick="removeSubwallet(this)" title="Remove">&#x2715;</button>
-    `;
-    list.appendChild(row);
-    updateSubwalletCounter();
+    const form = document.getElementById('ab-add-form');
+    const btn  = document.getElementById('add-subwallet');
+    if (!form || !btn) return;
+    form.classList.remove('hidden');
+    btn.classList.add('hidden');
+    document.getElementById('ab-new-label')?.focus();
+    const errEl = document.getElementById('ab-form-error');
+    if (errEl) errEl.textContent = '';
 }
+
+function _hideAddForm() {
+    const form = document.getElementById('ab-add-form');
+    const btn  = document.getElementById('add-subwallet');
+    if (form) form.classList.add('hidden');
+    if (btn)  btn.classList.remove('hidden');
+    ['ab-new-label', 'ab-new-address', 'ab-new-note'].forEach(id => {
+        const el = document.getElementById(id);
+        if (el) el.value = '';
+    });
+    const errEl = document.getElementById('ab-form-error');
+    if (errEl) errEl.textContent = '';
+}
+
+function _makeSubRow(label, address, desc, color, index) {
+    const short = address.slice(0, 6) + '…' + address.slice(-4);
+    const row   = document.createElement('div');
+    row.className       = 'subwallet-row ab-row ab-row-sub';
+    row.dataset.address = address;
+
+    const labelHtml = label
+        ? `<span class="ab-name">${label}</span>`
+        : `<span class="ab-name" style="color:var(--muted);font-weight:400">Unlabelled</span>`;
+
+    const descHtml = desc
+        ? `<span class="ab-desc-display">· ${desc}</span>`
+        : '';
+
+    row.innerHTML = `
+    <input type="hidden" class="sub-address" value="${address}" />
+    <input type="hidden" class="sub-label"   value="${label}" />
+    <input type="hidden" class="sub-desc"    value="${desc}" />
+    <div class="ab-avatar ab-avatar-sub"
+         style="background:${color};color:#fff">${index + 1}</div>
+    <div class="ab-identity">
+      <div class="ab-name-row">${labelHtml}</div>
+      <div class="ab-detail-row">
+        <span class="ab-address-display">${short}</span>
+        ${descHtml}
+      </div>
+    </div>
+    <div class="ab-actions">
+      <button class="btn-secondary btn-sm"
+              onclick="_editSubRow(this)">Edit</button>
+      <button class="btn-remove btn-sm"
+              onclick="removeSubwallet(this.parentElement)"
+              title="Remove wallet">Remove</button>
+    </div>`;
+    return row;
+}
+
+function _saveAddForm() {
+    const label   = document.getElementById('ab-new-label').value.trim();
+    const address = document.getElementById('ab-new-address').value.trim();
+    const desc    = document.getElementById('ab-new-note').value.trim();
+    const errEl   = document.getElementById('ab-form-error');
+
+    if (!/^0x[0-9a-fA-F]{40}$/.test(address)) {
+        errEl.textContent = 'Invalid Ethereum address format.';
+        return;
+    }
+
+    for (const inp of document.querySelectorAll('.sub-address')) {
+        if (inp.value.toLowerCase() === address.toLowerCase()) {
+            errEl.textContent = 'This address is already in the list.';
+            return;
+        }
+    }
+
+    const masterAddr = document.getElementById('master-address').value.trim();
+    if (masterAddr.toLowerCase() === address.toLowerCase()) {
+        errEl.textContent = 'Address matches the master wallet.';
+        return;
+    }
+
+    const list  = document.getElementById('subwallet-list');
+    const count = list.querySelectorAll('.subwallet-row').length;
+    if (count >= 15) {
+        errEl.textContent = 'Maximum 15 sub-wallets reached.';
+        return;
+    }
+
+    const color = CHART_COLORS[count % CHART_COLORS.length];
+    list.appendChild(_makeSubRow(label, address, desc, color, count));
+    updateSubwalletCounter();
+    _hideAddForm();
+    saveDraft();
+}
+
+function _editSubRow(btn) {
+    const row     = btn.closest('.subwallet-row');
+    const address = row.querySelector('.sub-address').value;
+    const label   = row.querySelector('.sub-label').value;
+    const desc    = row.querySelector('.sub-desc').value;
+    const color   = row.querySelector('.ab-avatar-sub').style.background;
+    const index   = Array.from(
+        document.querySelectorAll('.subwallet-row')
+    ).indexOf(row);
+
+    row.innerHTML = `
+    <input type="hidden" class="sub-address" value="${address}" />
+    <input type="hidden" class="sub-label"   value="" />
+    <input type="hidden" class="sub-desc"    value="" />
+    <div class="ab-avatar ab-avatar-sub"
+         style="background:${color};color:#fff">${index + 1}</div>
+    <div class="ab-identity">
+      <div class="ab-form-grid" style="width:100%;gap:8px;">
+        <div class="ab-form-field">
+          <label class="ab-form-label">Label</label>
+          <input type="text" class="ab-input ab-edit-label"
+                 value="${label}" maxlength="30"
+                 placeholder="Label (optional)" />
+        </div>
+        <div class="ab-form-field">
+          <label class="ab-form-label">Address</label>
+          <input type="text" class="ab-input ab-edit-address address-input"
+                 value="${address}" placeholder="0x..." />
+        </div>
+      </div>
+      <div class="ab-form-field" style="margin-top:6px;">
+        <label class="ab-form-label">Note (optional)</label>
+        <input type="text" class="ab-input ab-edit-desc"
+               value="${desc}" maxlength="80"
+               placeholder="Internal description..." />
+      </div>
+      <p class="error-msg ab-edit-error"></p>
+    </div>
+    <div class="ab-actions">
+      <button class="btn-secondary btn-sm"
+              onclick="_cancelEditRow(this)">Cancel</button>
+      <button class="btn-primary btn-sm"
+              onclick="_saveEditRow(this)">Save</button>
+    </div>`;
+}
+
+function _saveEditRow(btn) {
+    const row     = btn.closest('.subwallet-row');
+    const address = row.querySelector('.ab-edit-address').value.trim();
+    const label   = row.querySelector('.ab-edit-label').value.trim();
+    const desc    = row.querySelector('.ab-edit-desc').value.trim();
+    const errEl   = row.querySelector('.ab-edit-error');
+    const color   = row.querySelector('.ab-avatar-sub').style.background;
+    const index   = Array.from(
+        document.querySelectorAll('.subwallet-row')
+    ).indexOf(row);
+
+    if (!/^0x[0-9a-fA-F]{40}$/.test(address)) {
+        errEl.textContent = 'Invalid Ethereum address format.';
+        return;
+    }
+
+    for (const inp of document.querySelectorAll('.sub-address')) {
+        if (inp.closest('.subwallet-row') === row) continue;
+        if (inp.value.toLowerCase() === address.toLowerCase()) {
+            errEl.textContent = 'This address is already in the list.';
+            return;
+        }
+    }
+
+    row.replaceWith(_makeSubRow(label, address, desc, color, index));
+    saveDraft();
+}
+
+function _cancelEditRow(btn) {
+    const row     = btn.closest('.subwallet-row');
+    const address = row.querySelector('.sub-address').value;
+    const color   = row.querySelector('.ab-avatar-sub').style.background;
+    const index   = Array.from(
+        document.querySelectorAll('.subwallet-row')
+    ).indexOf(row);
+
+    const draft = _loadRawDraft?.();
+    const i     = draft?.subAddresses?.indexOf(address) ?? -1;
+    const label = i >= 0 ? (draft.subLabels?.[i]        ?? '') : '';
+    const desc  = i >= 0 ? (draft.subDescriptions?.[i]  ?? '') : '';
+
+    row.replaceWith(_makeSubRow(label, address, desc, color, index));
+}
+
+// ── /Phase 4-REDO-B ───────────────────────────────────────────
 
 function removeSubwallet(btn) { btn.parentElement.remove(); updateSubwalletCounter(); }
 
@@ -469,6 +652,8 @@ function saveDraft() {
             subAddresses:   Array.from(document.querySelectorAll('.sub-address'))
                                 .map(el => el.value.trim()).filter(Boolean),
             subLabels:      Array.from(document.querySelectorAll('.sub-label'))
+                                .map(el => el.value.trim()),
+            subDescriptions: Array.from(document.querySelectorAll('.sub-desc'))
                                 .map(el => el.value.trim()),
             // Strip ephemeral _color before serialising
             loadedWallets:  loadedWallets.map(({ _color, ...w }) => w),
@@ -529,16 +714,14 @@ function restoreDraft() {
     }
     if (draft.subAddresses?.length) {
         const list = document.getElementById('subwallet-list');
-        list.innerHTML = '';  // remove the blank row added by addSubwallet()
+        list.innerHTML = '';
         draft.subAddresses.forEach((addr, i) => {
-            addSubwallet();
-            const rows    = list.querySelectorAll('.subwallet-row');
-            const lastRow = rows[rows.length - 1];
-            lastRow.querySelector('.sub-address').value = addr;
-            // subLabels is optional — old drafts won't have it (backward compatible)
-            const label = draft.subLabels?.[i] ?? '';
-            if (label) lastRow.querySelector('.sub-label').value = label;
+            const label = draft.subLabels?.[i]        ?? '';
+            const desc  = draft.subDescriptions?.[i]  ?? '';
+            const color = CHART_COLORS[i % CHART_COLORS.length];
+            list.appendChild(_makeSubRow(label, addr, desc, color, i));
         });
+        updateSubwalletCounter();
     }
 
     // ── Restore prices (must come before displayPortfolio) ─
@@ -552,6 +735,7 @@ function restoreDraft() {
     loadedWallets = draft.loadedWallets.map(w => ({
         ...w,
         label: w.role === 'master' ? 'Master Wallet' : (w.label ?? ''),
+        description: w.role === 'master' ? '' : (w.description ?? ''),
         ...walletMetrics(w),
     }));
     displayPortfolio({});   // reads loadedWallets global directly
@@ -564,7 +748,6 @@ function restoreDraft() {
 }
 
 // ── Initialization ────────────────────────────────────────
-addSubwallet();
 document.getElementById('add-subwallet').addEventListener('click', addSubwallet);
 document.getElementById('load-btn').addEventListener('click', loadPortfolio);
 
@@ -821,9 +1004,19 @@ async function loadPortfolio() {
 
         // Enrich each wallet with USD fields and attach any user-set labels.
         const labelMap = getLabelMapFromInputs();
+
+        // Phase 4B: description map (address → description)
+        const descMap = {};
+        document.querySelectorAll('.subwallet-row').forEach(row => {
+            const addr = row.querySelector('.sub-address')?.value.trim().toLowerCase();
+            const desc = row.querySelector('.sub-desc')?.value.trim() ?? '';
+            if (addr) descMap[addr] = desc;
+        });
+
         loadedWallets = data.wallets.map(w => ({
             ...w,
             label: w.role === 'master' ? 'Master Wallet' : (labelMap[w.address.toLowerCase()] ?? ''),
+            description: w.role === 'master' ? '' : (descMap[w.address.toLowerCase()] ?? ''),
             ...walletMetrics(w),
         }));
         displayPortfolio(data);

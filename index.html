@@ -168,37 +168,103 @@
 
             <!-- Step 1: Wallet Setup -->
             <section id="wallet-setup" class="card">
+
+                <!-- Card header -->
                 <div class="card-header">
                     <div>
-                        <h2>Wallet Setup</h2>
-                        <p class="card-desc">Enter your master wallet and up to 15 subwallets.</p>
+                        <h2>Address book</h2>
+                        <p class="card-desc">
+                            Label and track Ethereum addresses for this workspace.
+                        </p>
+                    </div>
+                    <button type="button" id="add-subwallet"
+                            class="btn-primary btn-sm"
+                            title="Maximum 15 subwallets">
+                        + Add wallet
+                    </button>
+                </div>
+
+                <!-- Inline add form (hidden by default) -->
+                <div id="ab-add-form" class="ab-form hidden">
+                    <div class="ab-form-grid">
+                        <div class="ab-form-field">
+                            <label class="ab-form-label">Label</label>
+                            <input type="text" id="ab-new-label"
+                                   class="ab-input"
+                                   placeholder="e.g. Operations"
+                                   autocomplete="off" />
+                        </div>
+                        <div class="ab-form-field">
+                            <label class="ab-form-label">Address</label>
+                            <input type="text" id="ab-new-address"
+                                   class="ab-input ab-input-mono"
+                                   placeholder="0x..."
+                                   autocomplete="off"
+                                   spellcheck="false" />
+                        </div>
+                        <div class="ab-form-field ab-form-field-wide">
+                            <label class="ab-form-label">
+                                Note <span class="ab-form-optional">(optional)</span>
+                            </label>
+                            <input type="text" id="ab-new-note"
+                                   class="ab-input"
+                                   placeholder="e.g. used for gas"
+                                   autocomplete="off" />
+                        </div>
+                    </div>
+                    <div class="ab-form-actions">
+                        <button type="button" id="ab-cancel-btn" class="btn-secondary btn-sm">Cancel</button>
+                        <button type="button" id="ab-save-btn" class="btn-primary btn-sm">Save wallet</button>
+                    </div>
+                    <p id="ab-form-error" class="error-msg"></p>
+                </div>
+
+                <!-- Master wallet row -->
+                <div class="ab-row ab-row-master" id="ab-master-row">
+                    <div class="ab-avatar ab-avatar-master">M</div>
+                    <div class="ab-identity">
+                        <div class="ab-name-row">
+                            <span class="ab-name">Master Wallet</span>
+                            <span class="master-badge">★ MASTER</span>
+                        </div>
+                        <div class="ab-detail-row">
+                            <span id="ab-master-address-display"
+                                  class="ab-address-display"></span>
+                            <div id="ab-master-address-input-wrap"
+                                 class="ab-address-input-wrap">
+                                <input type="text"
+                                       id="master-address"
+                                       class="ab-input ab-input-mono"
+                                       placeholder="0x... master wallet address"
+                                       autocomplete="off"
+                                       spellcheck="false" />
+                            </div>
+                        </div>
+                    </div>
+                    <div class="ab-actions">
+                        <!-- no actions on master row -->
                     </div>
                 </div>
-                <div class="card-body">
-                    <div class="setup-grid">
-                        <div>
-                            <label class="field-label">Master Wallet</label>
-                            <p class="field-hint">Acts as the hub — receives surplus or funds deficits.</p>
-                            <input type="text" id="master-address"
-                                placeholder="0x..." class="address-input"
-                                autocomplete="off" spellcheck="false" />
-                        </div>
-                        <div>
-                            <label class="field-label">Subwallets</label>
-                            <p class="field-hint">Up to 15 sub-accounts supported.</p>
-                            <div id="subwallet-list"></div>
-                            <button id="add-subwallet" class="btn-add" title="Maximum 15 subwallets">+ Add Subwallet</button>
-                            <span id="subwallet-counter"></span>
-                        </div>
+
+                <!-- Subwallet rows injected here by JS -->
+                <div id="subwallet-list"></div>
+
+                <!-- Footer actions -->
+                <div class="ab-footer">
+                    <div class="ab-footer-left">
+                        <span id="subwallet-counter"
+                              class="ab-counter"></span>
                     </div>
-                    <div class="card-actions">
-                        <button id="load-btn" class="btn-primary">
+                    <div class="ab-footer-right">
+                        <button type="button" id="load-btn"
+                                class="btn-primary">
                             <span class="btn-text">Load Portfolio</span>
                             <span class="btn-spinner hidden"></span>
                         </button>
                         <p id="load-error" class="error-msg"></p>
                     </div>
                 </div>
+
             </section>
 
         </section>
