@@ -222,27 +222,23 @@
                 <!-- Master wallet row -->
                 <div class="ab-row ab-row-master" id="ab-master-row">
                     <div class="ab-avatar ab-avatar-master">M</div>
-                    <div class="ab-identity">
-                        <div class="ab-name-row">
-                            <span class="ab-name">Master Wallet</span>
-                            <span class="master-badge">★ MASTER</span>
-                        </div>
-                        <div class="ab-detail-row">
-                            <span id="ab-master-address-display"
-                                  class="ab-address-display"></span>
-                            <div id="ab-master-address-input-wrap"
-                                 class="ab-address-input-wrap">
-                                <input type="text"
-                                       id="master-address"
-                                       class="ab-input ab-input-mono"
-                                       placeholder="0x... master wallet address"
-                                       autocomplete="off"
-                                       spellcheck="false" />
-                            </div>
-                        </div>
+                    <div class="ab-identity" id="ab-master-identity">
+                        <!-- Populated by JS _renderMasterRow() -->
                     </div>
-                    <div class="ab-actions">
-                        <!-- no actions on master row -->
+                    <div class="ab-actions" id="ab-master-actions">
+                        <!-- Populated by JS _renderMasterRow() -->
+                    </div>
+                </div>
+
+                <!-- Set Master picker (hidden by default) -->
+                <div id="ab-master-picker" class="ab-picker hidden">
+                    <div class="ab-picker-header">
+                        <span class="ab-picker-title">Select new master wallet</span>
+                        <button class="btn-ghost-action"
+                                onclick="_closeMasterPicker()">✕</button>
+                    </div>
+                    <div id="ab-picker-list" class="ab-picker-list">
+                        <!-- Populated by JS when opened -->
                     </div>
                 </div>
 

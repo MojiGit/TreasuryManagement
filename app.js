@@ -6,6 +6,12 @@ let loadedWallets  = [];
 let lastPoolConfig = [];   // wallet config captured before each /api/pool call
 let lastPoolResult = null; // response from /api/pool
 
+// ── Master wallet state (Phase 4 fix) ────────────────────────
+let _masterLabel   = '';
+let _masterAddress = '';
+let _masterDesc    = '';
+// ── /Master wallet state ──────────────────────────────────────
+
 // Chart palette — muted, professional; blues/indigo primary family
 // Ledgerline deterministic wallet palette — Phase 2F
 // Mirrors --wallet-N-dark CSS variables from Phase 0.
@@ -102,6 +108,7 @@ function initTabs() {
     ?.addEventListener('click', _hideAddForm);
   document.getElementById('ab-save-btn')
     ?.addEventListener('click', _saveAddForm);
+  _renderMasterRow();
 }
 
 function _twoDigit(n) { return String(n).padStart(2, '0'); }
@@ -420,6 +427,182 @@ function updateSubwalletCounter() {
 
 // ── Phase 4-REDO-B: Address book interactions ─────────────────
 
+// ── Set Master flow ───────────────────────────────────────────
+function _renderMasterRow() {
+    const identity = document.getElementById('ab-master-identity');
+    const actions  = document.getElementById('ab-master-actions');
+    if (!identity || !actions) return;
+
+    // First-time setup — no address set yet
+    if (!_masterAddress) {
+        identity.innerHTML = `
+      <div class="ab-name-row">
+        <span class="ab-name">Master Wallet</span>
+        <span class="master-badge">★ MASTER</span>
+      </div>
+      <div class="ab-detail-row">
+        <input type="text"
+               id="master-address"
+               class="ab-input address-input"
+               placeholder="0x... master wallet address"
+               style="max-width:420px;margin-top:4px;"
+               autocomplete="off"
+               spellcheck="false" />
+      </div>
+      <p class="error-msg" id="ab-master-setup-error"></p>`;
+
+        actions.innerHTML = `
+      <button class="btn-primary btn-sm"
+              onclick="_saveMasterSetup()">
+        Save
+      </button>`;
+        return;
+    }
+
+    // Read mode — master address is set
+    const short = _masterAddress.slice(0, 6) + '…' + _masterAddress.slice(-4);
+
+    identity.innerHTML = `
+    <div class="ab-name-row">
+      <span class="ab-name">${_masterLabel || 'Master Wallet'}</span>
+      <span class="master-badge">★ MASTER</span>
+    </div>
+    <div class="ab-detail-row">
+      <span class="ab-address-display">${short}</span>
+      ${_masterDesc
+        ? '<span class="ab-desc-display">· ' + _masterDesc + '</span>'
+        : ''}
+    </div>
+    <input type="hidden" id="master-address" value="${_masterAddress}" />`;
+
+    actions.innerHTML = `
+    <button class="btn-ghost-action" onclick="_openMasterPicker()">
+      ★ Set Master
+    </button>`;
+}
+
+function _saveMasterSetup() {
+    const input = document.getElementById('master-address');
+    const errEl = document.getElementById('ab-master-setup-error');
+    const addr  = input?.value.trim() ?? '';
+
+    if (!/^0x[0-9a-fA-F]{40}$/.test(addr)) {
+        if (errEl) errEl.textContent = 'Invalid Ethereum address format.';
+        return;
+    }
+
+    const subAddrs = Array.from(document.querySelectorAll('.sub-address'))
+        .map(i => i.value.toLowerCase());
+    if (subAddrs.includes(addr.toLowerCase())) {
+        if (errEl) errEl.textContent = 'This address is already used as a sub-wallet.';
+        return;
+    }
+
+    _masterAddress = addr;
+    _masterLabel   = 'Master Wallet';
+    _masterDesc    = '';
+    _renderMasterRow();
+    saveDraft();
+}
+
+function _openMasterPicker() {
+    const picker  = document.getElementById('ab-master-picker');
+    const listEl  = document.getElementById('ab-picker-list');
+    const subRows = document.querySelectorAll('.subwallet-row');
+
+    if (!picker || !listEl) return;
+
+    if (subRows.length === 0) {
+        listEl.innerHTML = `
+      <p class="ab-picker-empty">
+        No sub-wallets available. Add a sub-wallet first.
+      </p>`;
+    } else {
+        listEl.innerHTML = Array.from(subRows).map(row => {
+            const addr  = row.querySelector('.sub-address').value;
+            const label = row.querySelector('.sub-label').value;
+            const desc  = row.querySelector('.sub-desc').value;
+            const color = row.querySelector('.ab-avatar-sub')?.style.background
+                || CHART_COLORS[0];
+            const short = addr.slice(0, 6) + '…' + addr.slice(-4);
+            const safeLabel = label.replace(/'/g, "\\'");
+            const safeDesc  = desc.replace(/'/g, "\\'");
+            const safeColor = color.replace(/'/g, "\\'");
+            return `
+          <div class="ab-picker-item"
+               onclick="_selectNewMaster('${addr}','${safeLabel}','${safeDesc}','${safeColor}')">
+            <div class="ab-avatar ab-avatar-sub"
+                 style="background:${color};width:32px;height:32px;font-size:12px;">
+              ${label ? label[0].toUpperCase() : '?'}
+            </div>
+            <div class="ab-identity">
+              <span class="ab-name" style="font-size:13px;">${label || 'Unlabelled'}</span>
+              <span class="ab-address-display">${short}</span>
+            </div>
+          </div>`;
+        }).join('');
+    }
+
+    picker.classList.remove('hidden');
+}
+
+function _closeMasterPicker() {
+    document.getElementById('ab-master-picker')?.classList.add('hidden');
+}
+
+function _selectNewMaster(newAddr, newLabel, newDesc, newColor) {
+    _closeMasterPicker();
+
+    if (loadedWallets.length > 0) {
+        const confirmed = window.confirm(
+            'Changing the master wallet will clear the current portfolio ' +
+            'and all pooling configuration. Continue?'
+        );
+        if (!confirmed) return;
+
+        loadedWallets  = [];
+        lastPoolResult = null;
+        lastPoolConfig = [];
+
+        ['portfolio-view', 'results-view', 'after-view',
+         'pooling-setup', 'portfolio-hero'].forEach(id => {
+            document.getElementById(id)?.classList.add('hidden');
+        });
+    }
+
+    // Old master becomes a sub-wallet
+    const oldAddr  = _masterAddress;
+    const oldLabel = _masterLabel;
+    const oldDesc  = _masterDesc;
+
+    // Promote selected sub-wallet to master
+    _masterAddress = newAddr;
+    _masterLabel   = newLabel || 'Master Wallet';
+    _masterDesc    = newDesc;
+    _renderMasterRow();
+
+    // Remove the promoted sub-wallet row from the list
+    document.querySelectorAll('.subwallet-row').forEach(row => {
+        if (row.querySelector('.sub-address')?.value.toLowerCase() ===
+            newAddr.toLowerCase()) {
+            row.remove();
+        }
+    });
+
+    // Add old master as a new sub-wallet row
+    const list  = document.getElementById('subwallet-list');
+    const count = list.querySelectorAll('.subwallet-row').length;
+    const color = CHART_COLORS[count % CHART_COLORS.length];
+    list.appendChild(_makeSubRow(
+        oldLabel === 'Master Wallet' ? '' : oldLabel,
+        oldAddr, oldDesc, color, count
+    ));
+
+    updateSubwalletCounter();
+    saveDraft();
+}
+// ── /Set Master flow ──────────────────────────────────────────
+
 // Opens the inline add form; called by #add-subwallet click.
 function addSubwallet() {
     const form = document.getElementById('ab-add-form');
@@ -652,7 +835,9 @@ function saveDraft() {
     try {
         localStorage.setItem(DRAFT_KEY, JSON.stringify({
             savedAt:        new Date().toISOString(),
-            masterAddress:  document.getElementById('master-address').value.trim(),
+            masterAddress:  _masterAddress,
+            masterLabel:    _masterLabel,
+            masterDesc:     _masterDesc,
             subAddresses:   Array.from(document.querySelectorAll('.sub-address'))
                                 .map(el => el.value.trim()).filter(Boolean),
             subLabels:      Array.from(document.querySelectorAll('.sub-label'))
@@ -714,7 +899,10 @@ function restoreDraft() {
 
     // ── Step 1: restore address inputs ───────────────────
     if (draft.masterAddress) {
-        document.getElementById('master-address').value = draft.masterAddress;
+        _masterAddress = draft.masterAddress;
+        _masterLabel   = draft.masterLabel || 'Master Wallet';
+        _masterDesc    = draft.masterDesc  || '';
+        _renderMasterRow();
     }
     if (draft.subAddresses?.length) {
         const list = document.getElementById('subwallet-list');
@@ -738,7 +926,7 @@ function restoreDraft() {
     // Re-run walletMetrics so USD fields are consistent with restored prices.
     loadedWallets = draft.loadedWallets.map(w => ({
         ...w,
-        label: w.role === 'master' ? 'Master Wallet' : (w.label ?? ''),
+        label: w.role === 'master' ? (_masterLabel || 'Master Wallet') : (w.label ?? ''),
         description: w.role === 'master' ? '' : (w.description ?? ''),
         ...walletMetrics(w),
     }));
@@ -979,7 +1167,7 @@ async function loadPortfolio() {
 
     clearRebalanceResults();
 
-    const masterAddress = document.getElementById('master-address').value.trim();
+    const masterAddress = _masterAddress.trim();
     const subInputs     = document.querySelectorAll('.sub-address');
     const subAddresses  = Array.from(subInputs)
         .map(i => i.value.trim()).filter(a => a !== '');
@@ -1019,7 +1207,9 @@ async function loadPortfolio() {
 
         loadedWallets = data.wallets.map(w => ({
             ...w,
-            label: w.role === 'master' ? 'Master Wallet' : (labelMap[w.address.toLowerCase()] ?? ''),
+            label: w.role === 'master'
+                ? (_masterLabel || 'Master Wallet')
+                : (labelMap[w.address.toLowerCase()] ?? ''),
             description: w.role === 'master' ? '' : (descMap[w.address.toLowerCase()] ?? ''),
             ...walletMetrics(w),
         }));
