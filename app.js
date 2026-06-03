@@ -473,11 +473,15 @@ function _makeSubRow(label, address, desc, color, index) {
       </div>
     </div>
     <div class="ab-actions">
-      <button class="btn-secondary btn-sm"
-              onclick="_editSubRow(this)">Edit</button>
-      <button class="btn-remove btn-sm"
-              onclick="removeSubwallet(this.parentElement)"
-              title="Remove wallet">Remove</button>
+      <button class="btn-ghost-action"
+              onclick="_editSubRow(this)">
+        <span class="btn-action-icon">✎</span> Edit
+      </button>
+      <button class="btn-ghost-action btn-ghost-remove"
+              onclick="removeSubwallet(this)"
+              title="Remove wallet">
+        <span class="btn-action-icon">🗑</span> Remove
+      </button>
     </div>`;
     return row;
 }
@@ -559,7 +563,7 @@ function _editSubRow(btn) {
       <p class="error-msg ab-edit-error"></p>
     </div>
     <div class="ab-actions">
-      <button class="btn-secondary btn-sm"
+      <button class="btn-ghost-action"
               onclick="_cancelEditRow(this)">Cancel</button>
       <button class="btn-primary btn-sm"
               onclick="_saveEditRow(this)">Save</button>
@@ -612,7 +616,7 @@ function _cancelEditRow(btn) {
 
 // ── /Phase 4-REDO-B ───────────────────────────────────────────
 
-function removeSubwallet(btn) { btn.parentElement.remove(); updateSubwalletCounter(); }
+function removeSubwallet(btn) { btn.closest('.subwallet-row').remove(); updateSubwalletCounter(); }
 
 // ── Draft Persistence ─────────────────────────────────────
 // Persists wallet addresses, live balances, prices, and pooling config.
