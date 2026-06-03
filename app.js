@@ -1082,7 +1082,8 @@ function clearRebalanceResults() {
 
     // Clear inner content so DOM references are clean for the next run
     document.getElementById('results-summary').innerHTML  = '';
-    document.getElementById('transfer-body').innerHTML    = '';
+    const _tl = document.getElementById('transfer-list');
+    if (_tl) _tl.innerHTML = '';
     document.getElementById('after-sub-accounts').innerHTML = '';
     document.getElementById('after-master-overview').innerHTML = '';
 
@@ -2287,52 +2288,114 @@ function displayResults(data) {
             `</div>`);
     }
 
-    const tbody    = document.getElementById('transfer-body');
+    // ── Phase 6B: Grouped transaction cards ──────────────────
+    const listEl   = document.getElementById('transfer-list');
     const execNote = document.getElementById('transfer-exec-note');
-    tbody.innerHTML = '';
+
+    if (!listEl) return;
+    listEl.innerHTML = '';
 
     if (sorted.length === 0) {
         if (execNote) execNote.classList.add('hidden');
-        tbody.innerHTML = `
-            <tr class="empty-row"><td colspan="7">
-                <div class="empty-icon">&#10003;</div>
-                <div class="empty-text">All wallets are already at target</div>
-                <div class="empty-sub">No transfers required.</div>
-            </td></tr>`;
+        listEl.innerHTML = `
+            <div class="tx-empty">
+                <div class="tx-empty-icon">✓</div>
+                <div class="tx-empty-text">
+                    All wallets are already at target.
+                    No transfers required.
+                </div>
+            </div>`;
     } else {
         if (execNote) execNote.classList.remove('hidden');
 
-        // Use gas-enriched rows when available, otherwise fall back to plain sorted
-        const rows = gasAnalysis ? gasAnalysis.txGas : sorted;
-        rows.forEach((t, i) => {
-            const tInfo = typeLabels[t.type] || { label: t.type, css: '' };
-            const token = t.token || 'ETH';
+        // Define phase groups in render order
+        const phaseGroups = [
+            { token: 'ETH',  type: 'sub_to_sub',
+              label: 'ETH · SUB TO SUB',              dot: 'var(--accent)' },
+            { token: 'ETH',  type: 'sub_to_master',
+              label: 'ETH · COLLECT INTO MASTER',     dot: 'var(--positive)' },
+            { token: 'ETH',  type: 'master_to_sub',
+              label: 'ETH · DISTRIBUTE FROM MASTER',  dot: 'var(--accent)' },
+            { token: 'USDT', type: 'sub_to_sub',
+              label: 'USDT · SUB TO SUB',             dot: 'var(--accent)' },
+            { token: 'USDT', type: 'sub_to_master',
+              label: 'USDT · COLLECT INTO MASTER',    dot: 'var(--positive)' },
+            { token: 'USDT', type: 'master_to_sub',
+              label: 'USDT · DISTRIBUTE FROM MASTER', dot: 'var(--accent)' },
+        ];
 
-            // Gas Est. cell — always show ETH cost when gas is available;
-            // USD shown as primary only when ethUsdPrice is loaded.
-            let gasCell;
-            if (!gasAnalysis) {
-                gasCell = `<span class="cell-na">—</span>`;
-            } else {
-                const badge = t.uneconomical ? ' <span class="gas-uneconomical-badge">⚠ uneconomical</span>' : '';
-                gasCell = t.gasUsd != null
-                    ? `${fmtGasUsd(t.gasUsd)}${badge}`
-                    : `<span class="cell-na">—</span>`;
-            }
+        let globalIndex = 1;
 
-            const row = document.createElement('tr');
-            if (t.uneconomical) row.classList.add('row-uneconomical');
-            row.innerHTML = `
-                <td class="cell-num">${i + 1}</td>
-                <td><span class="type-badge ${tInfo.css}">${tInfo.label}</span></td>
-                <td><span class="token-badge token-${token.toLowerCase()}">${token}</span></td>
-                <td>${walletIdHtmlByAddr(t.from)}</td>
-                <td>${walletIdHtmlByAddr(t.to)}</td>
-                <td class="cell-num">${t.amount.toFixed(4)} ${token}</td>
-                <td class="cell-num gas-cell">${gasCell}</td>`;
-            tbody.appendChild(row);
+        phaseGroups.forEach(group => {
+            const groupXfers = sorted.filter(t =>
+                (t.token || 'ETH') === group.token && t.type === group.type
+            );
+            if (groupXfers.length === 0) return;
+
+            // Phase header
+            const header = document.createElement('div');
+            header.className = 'tx-phase-header';
+            header.innerHTML = `
+                <span class="tx-phase-dot"
+                      style="background:${group.dot}"></span>
+                ${group.label}`;
+            listEl.appendChild(header);
+
+            // Transfer cards for this group
+            groupXfers.forEach(t => {
+                const token  = t.token || 'ETH';
+                const gasRow = gasAnalysis
+                    ? (() => {
+                          const tGas = gasAnalysis.txGas.find(
+                              g => g.from === t.from &&
+                                   g.to   === t.to   &&
+                                   g.amount === t.amount &&
+                                   (g.token || 'ETH') === token);
+                          if (!tGas) return '';
+                          const gasStr = tGas.gasUsd != null
+                              ? fmtGasUsd(tGas.gasUsd)
+                              : `${GAS_LIMITS[token]?.toLocaleString() ?? '—'} gas`;
+                          const badge = tGas.uneconomical
+                              ? ' <span class="gas-uneconomical-badge">⚠ uneconomical</span>'
+                              : '';
+                          return `<div class="tx-gas">⛽ ${GAS_LIMITS[token]?.toLocaleString() ?? '—'} gas · ${gasStr}${badge}</div>`;
+                      })()
+                    : '';
+
+                const fromHtml = walletIdHtmlByAddr(t.from);
+                const toHtml   = walletIdHtmlByAddr(t.to);
+                const amtDp    = token === 'USDT' ? 2 : 4;
+                const amtStr   = t.amount.toFixed(amtDp) + ' ' + token;
+                const usdStr   = token === 'ETH' && ethUsdPrice
+                    ? '≈ ' + fmtUsdCompact(t.amount * ethUsdPrice)
+                    : token === 'USDT'
+                    ? '≈ ' + fmtUsdCompact(t.amount * usdtRate())
+                    : '';
+
+                const card = document.createElement('div');
+                card.className = 'tx-card';
+                card.innerHTML = `
+                    <div class="tx-index">${globalIndex}</div>
+                    <div class="tx-from">
+                        <div class="tx-block-eyebrow">FROM</div>
+                        <div class="tx-block-name">${fromHtml}</div>
+                    </div>
+                    <div class="tx-arrow">→</div>
+                    <div class="tx-to">
+                        <div class="tx-block-eyebrow">TO</div>
+                        <div class="tx-block-name">${toHtml}</div>
+                    </div>
+                    <div class="tx-amount">
+                        <div class="tx-amount-val">${amtStr}</div>
+                        ${usdStr ? `<div class="tx-amount-usd">${usdStr}</div>` : ''}
+                        ${gasRow}
+                    </div>`;
+                listEl.appendChild(card);
+                globalIndex++;
+            });
         });
     }
+    // ── /Phase 6B ─────────────────────────────────────────────
 
     // Gas legend — pricing-basis style with gas price, limits and timestamp
     const gasLegendEl = document.getElementById('gas-legend');
@@ -3080,16 +3143,15 @@ function _renderPDF() {
 document.getElementById('copy-btn').addEventListener('click', copyPlan);
 
 function copyPlan() {
-    const rows  = document.querySelectorAll('#transfer-body tr:not(.empty-row)');
+    const cards = document.querySelectorAll('#transfer-list .tx-card');
     const lines = ['CryptoTreasury — Transfer Plan', ''];
-    rows.forEach(row => {
-        const cells = row.querySelectorAll('td');
-        // cols: # | Type | Token | From | To | Amount
-        lines.push(
-            `${cells[0].textContent}. [${cells[2].textContent.trim()}] ${cells[1].textContent.trim()}  ` +
-            `${cells[3].textContent} -> ${cells[4].textContent}  ` +
-            `${cells[5].textContent}`
-        );
+    cards.forEach(card => {
+        const idx    = card.querySelector('.tx-index')?.textContent.trim() ?? '';
+        const from   = card.querySelector('.tx-from .tx-block-name')?.textContent.trim() ?? '';
+        const to     = card.querySelector('.tx-to .tx-block-name')?.textContent.trim() ?? '';
+        const amount = card.querySelector('.tx-amount-val')?.textContent.trim() ?? '';
+        const usd    = card.querySelector('.tx-amount-usd')?.textContent.trim() ?? '';
+        lines.push(`${idx}. ${from} -> ${to}  ${amount}${usd ? '  ' + usd : ''}`);
     });
     navigator.clipboard.writeText(lines.join('\n')).then(() => {
         const btn = document.getElementById('copy-btn');
