@@ -2131,6 +2131,89 @@ function displayResults(data) {
     const totalUSDT   = usdtXfers.reduce((s, t) => s + t.amount, 0);
     const affected    = new Set([...transfers.map(t => t.from), ...transfers.map(t => t.to)]).size;
 
+    // ── Phase 6A: Hub card ────────────────────────────────────
+    (function renderHubCard() {
+        const hubEl = document.getElementById('hub-card');
+        if (!hubEl) return;
+
+        const master = loadedWallets.find(w => w.role === 'master');
+        if (!master) { hubEl.classList.add('hidden'); return; }
+
+        // Gross flows from master perspective
+        const ethIn   = transfers
+            .filter(t => t.token !== 'USDT' &&
+                         t.to.toLowerCase() === master.address.toLowerCase())
+            .reduce((s, t) => s + t.amount, 0);
+        const ethOut  = transfers
+            .filter(t => t.token !== 'USDT' &&
+                         t.from.toLowerCase() === master.address.toLowerCase())
+            .reduce((s, t) => s + t.amount, 0);
+        const usdtIn  = transfers
+            .filter(t => t.token === 'USDT' &&
+                         t.to.toLowerCase() === master.address.toLowerCase())
+            .reduce((s, t) => s + t.amount, 0);
+        const usdtOut = transfers
+            .filter(t => t.token === 'USDT' &&
+                         t.from.toLowerCase() === master.address.toLowerCase())
+            .reduce((s, t) => s + t.amount, 0);
+
+        const collectsUsd = ethToUsd(ethIn) != null
+            ? r2(ethToUsd(ethIn) + usdtIn * usdtRate()) : null;
+        const coversUsd   = ethToUsd(ethOut) != null
+            ? r2(ethToUsd(ethOut) + usdtOut * usdtRate()) : null;
+
+        const fmtDelta = (v, dp) => v === 0 ? null
+            : `${v > 0 ? '+' : ''}${v.toFixed(dp)}`;
+
+        const masterLabel = _masterLabel || 'Master Wallet';
+        const masterShort = master.address.slice(0, 6) + '…' + master.address.slice(-4);
+
+        hubEl.innerHTML = `
+      <div class="hub-card-inner">
+        <div class="hub-col hub-col-identity">
+          <div class="hub-eyebrow">Rebalance Overview</div>
+          <div class="hub-master-name">${masterLabel}</div>
+          <div class="hub-master-addr">${masterShort}</div>
+          <div class="hub-master-desc">
+            Hub wallet — absorbs surplus from sub-wallets and covers their deficits.
+          </div>
+        </div>
+        <div class="hub-col hub-col-collects">
+          <div class="hub-col-label">COLLECTS FROM SUB-WALLETS</div>
+          <div class="hub-flow-value hub-positive">${
+            collectsUsd != null
+                ? '+' + fmtUsdCompact(collectsUsd)
+                : ethIn > 0 || usdtIn > 0 ? '—' : '$0'}</div>
+          <div class="hub-delta-row">
+            <span class="hub-delta-token">ETH in</span>
+            <span class="hub-delta-val">+${ethIn.toFixed(4)}</span>
+          </div>
+          <div class="hub-delta-row">
+            <span class="hub-delta-token">USDT in</span>
+            <span class="hub-delta-val">+${usdtIn.toFixed(2)}</span>
+          </div>
+        </div>
+        <div class="hub-col hub-col-covers">
+          <div class="hub-col-label">COVERS SUB-WALLET DEFICITS</div>
+          <div class="hub-flow-value hub-accent">${
+            coversUsd != null
+                ? '−' + fmtUsdCompact(coversUsd)
+                : ethOut > 0 || usdtOut > 0 ? '—' : '$0'}</div>
+          <div class="hub-delta-row">
+            <span class="hub-delta-token">ETH out</span>
+            <span class="hub-delta-val hub-accent">−${ethOut.toFixed(4)}</span>
+          </div>
+          <div class="hub-delta-row">
+            <span class="hub-delta-token">USDT out</span>
+            <span class="hub-delta-val hub-accent">−${usdtOut.toFixed(2)}</span>
+          </div>
+        </div>
+      </div>`;
+
+        hubEl.classList.remove('hidden');
+    })();
+    // ── /Phase 6A ─────────────────────────────────────────────
+
     // Sort transfers and run gas analysis
     const typeLabels = {
         sub_to_sub:     { label: 'Sub → Sub',    css: 'type-sub-sub'    },
