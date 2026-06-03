@@ -2321,3 +2321,137 @@ body {
   color: var(--muted);
   text-align: center;
 }
+
+/* ══════════════════════════════════════════════════════════
+   LEDGERLINE — Phase 5: Targets tab polish
+   ══════════════════════════════════════════════════════════ */
+
+/* ── Table column sizing ───────────────────────────────── */
+.pt-col-wallet  { min-width: 140px; }
+.pt-col-role    { width: 80px; }
+.pt-col-num     { width: 120px; text-align: right; }
+.pt-col-config  { min-width: 180px; }
+
+/* Dashed vertical divider between ETH and USDT groups */
+.pt-col-divider {
+  border-left: 1px dashed var(--line);
+}
+.wallets-table td:nth-child(5),
+.data-table td:nth-child(5) {
+  border-left: 1px dashed var(--line);
+}
+
+/* ── Mode select polish ────────────────────────────────── */
+.mode-select {
+  padding:       5px 8px;
+  border:        1px solid var(--line);
+  border-radius: var(--radius-input);
+  font-size:     12px;
+  font-weight:   500;
+  background:    var(--surface);
+  color:         var(--ink);
+  cursor:        pointer;
+  transition:    border-color var(--t);
+  appearance:    auto;
+}
+.mode-select:hover {
+  border-color: var(--accent);
+}
+.mode-select:focus {
+  outline:      none;
+  border-color: var(--accent);
+  box-shadow:   0 0 0 2px var(--accent-soft);
+}
+
+/* ── Target input polish ───────────────────────────────── */
+.target-input {
+  padding:       5px 8px;
+  border:        1px solid var(--line);
+  border-radius: var(--radius-input);
+  font-size:     12px;
+  font-family:   'Geist Mono', ui-monospace, monospace;
+  font-variant-numeric: tabular-nums;
+  font-feature-settings: "tnum", "zero";
+  background:    var(--surface);
+  color:         var(--ink);
+  transition:    border-color var(--t), box-shadow var(--t);
+}
+.target-input:not(:disabled):hover {
+  border-color: var(--accent);
+}
+.target-input:focus {
+  outline:      none;
+  border-color: var(--accent);
+  box-shadow:   0 0 0 2px var(--accent-soft);
+}
+.target-input:disabled {
+  background:   var(--bg-2);
+  color:        var(--muted);
+  cursor:       not-allowed;
+  border-color: var(--line-2);
+}
+.target-input::placeholder {
+  color: var(--faint);
+}
+
+/* ── Currency toggle polish ────────────────────────────── */
+.currency-toggle {
+  border:        1px solid var(--line);
+  border-radius: var(--radius-input);
+  background:    var(--surface);
+  color:         var(--ink-2);
+  font-size:     11px;
+  font-weight:   500;
+  padding:       4px 7px;
+  cursor:        pointer;
+  transition:    all var(--t);
+}
+.currency-toggle:not(:disabled):hover {
+  border-color: var(--accent);
+  color:        var(--accent-ink);
+  background:   var(--accent-soft);
+}
+.currency-toggle.active {
+  background:   var(--accent-soft);
+  color:        var(--accent-ink);
+  border-color: var(--accent);
+}
+.currency-toggle:disabled {
+  opacity:  0.5;
+  cursor:   not-allowed;
+}
+
+/* ── Conversion hint ───────────────────────────────────── */
+.conversion-hint {
+  font-size:   11px;
+  color:       var(--muted);
+  font-family: 'Geist Mono', ui-monospace, monospace;
+  font-variant-numeric: tabular-nums;
+  min-height:  16px;
+}
+
+/* ── Pool config layout ────────────────────────────────── */
+.pool-config {
+  display:        flex;
+  flex-direction: column;
+  gap:            6px;
+  align-items:    flex-start;
+}
+
+/* ── Targets tab footer ────────────────────────────────── */
+.pt-footer {
+  display:         flex;
+  align-items:     center;
+  justify-content: space-between;
+  padding:         14px 0 2px;
+  gap:             12px;
+}
+.pt-footer-left {
+  flex: 1;
+}
+.pt-footer-right {
+  display:     flex;
+  align-items: center;
+  gap:         10px;
+  flex-shrink: 0;
+}

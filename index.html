@@ -273,30 +273,34 @@
             <section id="pooling-setup" class="card">
                 <div class="card-header">
                     <div>
-                        <h2>Cash Pooling Setup</h2>
-                        <p class="card-desc">Configure the target balance for each wallet.</p>
+                        <h2>Target Allocations</h2>
+                        <p class="card-desc">Set absolute holdings each wallet should converge toward.</p>
                     </div>
                 </div>
                 <div class="card-body">
                     <table class="data-table" id="pooling-table">
                         <thead>
                             <tr>
-                                <th>Address</th>
-                                <th>Role</th>
-                                <th>ETH Balance</th>
-                                <th>ETH Config</th>
-                                <th>USDT Balance</th>
-                                <th>USDT Config</th>
+                                <th class="pt-col-wallet">Wallet</th>
+                                <th class="pt-col-role">Role</th>
+                                <th class="pt-col-num">Current ETH</th>
+                                <th class="pt-col-config">Target ETH</th>
+                                <th class="pt-col-num pt-col-divider">Current USDT</th>
+                                <th class="pt-col-config">Target USDT</th>
                             </tr>
                         </thead>
                         <tbody id="pooling-body"></tbody>
                     </table>
-                    <div class="card-actions">
-                        <button id="pool-btn" class="btn-primary btn-accent">
-                            <span class="btn-text">Run Pool</span>
-                            <span class="btn-spinner hidden"></span>
-                        </button>
-                        <p id="pool-error" class="error-msg"></p>
+                    <div class="pt-footer">
+                        <div class="pt-footer-left">
+                            <p id="pool-error" class="error-msg"></p>
+                        </div>
+                        <div class="pt-footer-right">
+                            <button id="pool-btn" class="btn-primary btn-accent">
+                                <span class="btn-text">Run Pool</span>
+                                <span class="btn-spinner hidden"></span>
+                            </button>
+                        </div>
                     </div>
                 </div>
             </section>
