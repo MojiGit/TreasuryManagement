@@ -57,41 +57,6 @@
 
 <div class="app">
 
-    <!-- PHASE-1C: Progress indicator retired. The sidebar
-         navigation replaces linear step progression.
-         This block may be removed permanently in a later
-         cleanup phase. -->
-    <!--
-    <div class="steps-track">
-        <div class="steps-inner">
-            <div class="step-item active" id="step-1">
-                <div class="step-num">1</div>
-                <span class="step-name">Wallet Setup</span>
-            </div>
-            <div class="step-connector"></div>
-            <div class="step-item" id="step-2">
-                <div class="step-num">2</div>
-                <span class="step-name">Portfolio</span>
-            </div>
-            <div class="step-connector"></div>
-            <div class="step-item" id="step-3">
-                <div class="step-num">3</div>
-                <span class="step-name">Pool Config</span>
-            </div>
-            <div class="step-connector"></div>
-            <div class="step-item" id="step-4">
-                <div class="step-num">4</div>
-                <span class="step-name">Results</span>
-            </div>
-            <div class="step-connector"></div>
-            <div class="step-item" id="step-5">
-                <div class="step-num">5</div>
-                <span class="step-name">Analysis</span>
-            </div>
-        </div>
-    </div>
-    -->
-
     <!-- ── Main ── -->
     <main class="main-content">
 
@@ -99,7 +64,6 @@
         <section class="tab-panel is-active" id="tab-overview"
                  role="tabpanel" aria-labelledby="nav-overview">
 
-            <!-- Step 2: Portfolio View -->
             <section id="portfolio-view" class="card">
                 <div class="card-header">
                     <div>
@@ -166,7 +130,6 @@
         <section class="tab-panel" id="tab-wallets"
                  role="tabpanel" aria-labelledby="nav-wallets">
 
-            <!-- Step 1: Wallet Setup -->
             <section id="wallet-setup" class="card">
 
                 <!-- Card header -->
@@ -269,7 +232,6 @@
         <section class="tab-panel" id="tab-targets"
                  role="tabpanel" aria-labelledby="nav-targets">
 
-            <!-- Step 3: Pooling Setup -->
             <section id="pooling-setup" class="card">
                 <div class="card-header">
                     <div>
@@ -311,7 +273,6 @@
         <section class="tab-panel" id="tab-rebalance"
                  role="tabpanel" aria-labelledby="nav-rebalance">
 
-            <!-- Step 4: Results -->
             <section id="results-view" class="card">
                 <div class="card-header">
                     <div>
@@ -336,22 +297,6 @@
                             <span class="exec-note-icon">&#9650;</span>
                             Execute transactions strictly in the order listed. Each transfer may depend on the preceding one having settled on-chain before the next is submitted.
                         </div>
-                        <!-- Phase 6B: replaced by #transfer-list
-                        <table class="data-table" id="transfer-table">
-                            <thead>
-                                <tr>
-                                    <th>#</th>
-                                    <th>Type</th>
-                                    <th>Token</th>
-                                    <th>From</th>
-                                    <th>To</th>
-                                    <th>Amount</th>
-                                    <th>Gas Est.</th>
-                                </tr>
-                            </thead>
-                            <tbody id="transfer-body"></tbody>
-                        </table>
-                        -->
                         <div id="transfer-list" class="transfer-list"></div>
                         <div id="gas-legend" class="pricing-legend hidden"></div>
                         <div id="gas-notice" class="gas-notice hidden"></div>
@@ -360,7 +305,6 @@
                 </div>
             </section>
 
-            <!-- Step 5: After Transfer Analysis -->
             <section id="after-view" class="card">
                 <div class="card-header">
                     <div>
