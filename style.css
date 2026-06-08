@@ -127,17 +127,6 @@
 
 [data-density="compact"] { --pad-row: 10px; }
 
-/* ── Typography utility classes ──────────────────────────────────── */
-.ledger-sans {
-  font-family: 'Geist', ui-sans-serif, system-ui, sans-serif;
-  font-feature-settings: "ss01", "cv11";
-}
-.ledger-mono {
-  font-family: 'Geist Mono', ui-monospace, monospace;
-  font-feature-settings: "tnum", "zero";
-  font-variant-numeric: tabular-nums;
-}
-
 /* ── Selection highlight ─────────────────────────────────────────── */
 ::selection { background: var(--accent-soft); }
 
@@ -410,13 +399,6 @@ body {
   gap: 8px;
 }
 
-/* ═══ Setup Grid ════════════════════════════════════════════════ */
-.setup-grid {
-  display: grid;
-  grid-template-columns: 1fr 1fr;
-  gap: 28px;
-}
-
 /* ═══ Form Fields ═══════════════════════════════════════════════ */
 .field-label {
   display: block;
@@ -672,21 +654,6 @@ body {
   cursor: default;
 }
 
-/* ── Header row: identity (left) + total USD (right) ── */
-.master-header {
-  display: flex;
-  align-items: flex-start;
-  justify-content: space-between;
-  gap: 16px;
-  margin-bottom: 12px;
-}
-
-.master-identity {
-  display: flex;
-  flex-direction: column;
-  gap: 3px;
-}
-
 .master-badge {
   display: inline-flex;
   align-items: center;
@@ -711,30 +678,6 @@ body {
   letter-spacing: 0.02em;
 }
 
-.master-total-usd {
-  text-align: right;
-  flex-shrink: 0;
-  line-height: 1.1;
-}
-
-.master-total-value {
-  font-family: var(--font-mono);
-  font-variant-numeric: tabular-nums;
-  font-feature-settings: "tnum", "zero";
-  font-size: 22px;
-  font-weight: 700;
-  color: var(--text);
-  letter-spacing: -0.04em;
-}
-
-.master-total-label {
-  font-size: 11px;
-  font-weight: 500;
-  color: var(--text-2);
-  margin-left: 5px;
-  letter-spacing: 0.02em;
-}
-
 .master-total-delta {
   font-family: var(--font-mono);
   font-variant-numeric: tabular-nums;
@@ -744,252 +687,7 @@ body {
   margin-top: 3px;
 }
 
-/* ── Two-column metrics row ── */
-.master-metrics-row {
-  display: grid;
-  grid-template-columns: 1fr 1fr;
-  border-top: 1px solid var(--border);
-  padding-top: 12px;
-}
-
-.master-metric {
-  display: flex;
-  flex-direction: column;
-  gap: 2px;
-  padding-right: 18px;
-}
-
-.master-metric:last-child {
-  padding-right: 0;
-  padding-left: 18px;
-  border-left: 1px solid var(--border);
-}
-
-.master-metric-balance {
-  font-family: var(--font-mono);
-  font-variant-numeric: tabular-nums;
-  font-feature-settings: "tnum", "zero";
-  font-size: 20px;
-  font-weight: 700;
-  color: var(--text);
-  letter-spacing: -0.03em;
-  line-height: 1.1;
-}
-
-.master-metric-unit {
-  font-size: 11px;
-  font-weight: 600;
-  color: var(--text-2);
-  letter-spacing: 0.02em;
-}
-
-.master-metric-usd {
-  font-family: var(--font-mono);
-  font-variant-numeric: tabular-nums;
-  font-feature-settings: "tnum", "zero";
-  font-size: 11px;
-  color: var(--text-3);
-  margin-top: 3px;
-}
-
-.master-metric-share {
-  font-family: var(--font-mono);
-  font-variant-numeric: tabular-nums;
-  font-feature-settings: "tnum", "zero";
-  font-size: 10.5px;
-  color: var(--text-3);
-  margin-top: 1px;
-}
-
-.master-metric-delta {
-  font-family: var(--font-mono);
-  font-variant-numeric: tabular-nums;
-  font-feature-settings: "tnum", "zero";
-  font-size: 11px;
-  font-weight: 600;
-  margin-top: 3px;
-}
-
-/* ═══ Portfolio — Body (sub-accounts + charts) ═══════════════════ */
-.portfolio-body {
-  display: grid;
-  grid-template-columns: 1fr 190px;
-  gap: 20px;
-  align-items: start;
-}
-
-/* ── Sub-accounts panel ── */
-.accounts-header {
-  display: flex;
-  align-items: center;
-  gap: 7px;
-  font-size: 10px;
-  font-weight: 700;
-  color: var(--text-2);
-  text-transform: uppercase;
-  letter-spacing: 0.1em;
-  margin-bottom: 8px;
-  padding-bottom: 6px;
-  border-bottom: 1px solid var(--border);
-}
-
-.accounts-count {
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  min-width: 16px;
-  height: 16px;
-  padding: 0 4px;
-  border-radius: 2px;
-  background: var(--surface-3);
-  color: var(--text-2);
-  font-size: 9.5px;
-  font-weight: 700;
-}
-
-/* ── Sub-account row — three-column panel layout ── */
-.account-row {
-  display: grid;
-  grid-template-columns: 12px 1fr;
-  gap: 0 8px;
-  padding: 10px 8px;
-  border-radius: 2px;
-  border: 1px solid transparent;
-  transition: background var(--t), border-color var(--t), opacity var(--t-slow);
-  cursor: default;
-  align-items: start;
-}
-
-.account-row:hover {
-  background: var(--bg-2);
-  border-color: var(--line);
-}
-
-.account-dot {
-  width: 8px;
-  height: 8px;
-  border-radius: 50%;
-  flex-shrink: 0;
-  margin-top: 2px;
-}
-
-/* Body: address + three-column metrics */
-.account-body {
-  display: flex;
-  flex-direction: column;
-  gap: 0;
-  min-width: 0;
-}
-
-.account-addr {
-  /* Container — identity HTML inside supplies its own font/colour */
-  font-family: var(--font-sans);
-  font-size: 11.5px;
-  color: var(--text);
-  letter-spacing: 0;
-  margin-bottom: 6px;
-}
-
-.account-metrics {
-  display: grid;
-  grid-template-columns: 1fr 1fr 1fr;
-  border-top: 1px solid var(--border);
-  padding-top: 7px;
-}
-
-.account-metric {
-  display: flex;
-  flex-direction: column;
-  gap: 2px;
-  padding-right: 12px;
-}
-
-.account-metric + .account-metric {
-  border-left: 1px solid var(--border);
-  padding-left: 12px;
-}
-
-.account-metric:last-child {
-  padding-right: 0;
-  text-align: right;
-}
-
-.account-metric-bal {
-  font-family: var(--font-mono);
-  font-variant-numeric: tabular-nums;
-  font-feature-settings: "tnum", "zero";
-  font-size: 13px;
-  font-weight: 700;
-  color: var(--text);
-  letter-spacing: -0.02em;
-  line-height: 1.1;
-}
-
-.account-metric-unit {
-  font-size: 9.5px;
-  font-weight: 600;
-  color: var(--text-2);
-  letter-spacing: 0.03em;
-}
-
-.account-metric-usd {
-  font-family: var(--font-mono);
-  font-variant-numeric: tabular-nums;
-  font-feature-settings: "tnum", "zero";
-  font-size: 10.5px;
-  color: var(--primary);
-  margin-top: 1px;
-}
-
-.account-metric-share {
-  font-family: var(--font-mono);
-  font-variant-numeric: tabular-nums;
-  font-feature-settings: "tnum", "zero";
-  font-size: 10px;
-  color: var(--text-3);
-  margin-top: 1px;
-}
-
-/* Right column: total wallet USD */
-.account-total-value {
-  font-family: var(--font-mono);
-  font-variant-numeric: tabular-nums;
-  font-feature-settings: "tnum", "zero";
-  font-size: 16px;
-  font-weight: 700;
-  color: var(--text);
-  letter-spacing: -0.03em;
-  line-height: 1.1;
-}
-
-.account-total-label {
-  font-size: 9.5px;
-  font-weight: 500;
-  color: var(--text-2);
-  margin-left: 3px;
-  letter-spacing: 0.02em;
-}
-
 /* ── Donut Charts ── */
-
-/* Portfolio view — horizontal strip between master card and sub-accounts */
-.chart-panel {
-  display: flex;
-  flex-direction: row;
-  justify-content: space-evenly;
-  align-items: center;
-  gap: 0;
-  padding: 14px 0;
-  margin-bottom: 18px;
-}
-
-/* After-view — vertical column alongside sub-accounts (inside portfolio-body grid) */
-.chart-panel-col {
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  gap: 14px;
-}
 
 .chart-item {
   display: flex;
@@ -1252,17 +950,6 @@ body {
   color: var(--text-3);
   background: var(--surface);
   letter-spacing: 0.02em;
-}
-
-/* ═══ After-view: green accent ═══════════════════════════════════ */
-.master-overview.after-master {
-  border-left-color: var(--green);
-}
-
-.after-badge {
-  background: var(--green-dim) !important;
-  color: var(--green) !important;
-  border: none !important;
 }
 
 /* Delta on master hero */
@@ -1577,16 +1264,8 @@ body {
   .main-content   { padding: 14px 14px 48px; }
   .steps-inner { padding: 0 14px; }
   .card-header, .card-body { padding-left: 16px; padding-right: 16px; }
-  .setup-grid     { grid-template-columns: 1fr; gap: 16px; }
-  .portfolio-body { grid-template-columns: 1fr; }
-  .chart-panel    { order: -1; flex-direction: row; flex-wrap: wrap; justify-content: center; }
-  .chart-panel { flex-wrap: wrap; gap: 12px; padding: 12px 0; }
   #portfolio-chart, #portfolio-usdt-chart, #portfolio-usd-chart { width: 150px; height: 150px; }
   #after-chart, #after-usdt-chart, #after-usd-chart { width: 130px; height: 130px; }
-  .master-metrics-row { grid-template-columns: 1fr; gap: 12px; }
-  .master-metric:last-child { border-left: none; border-top: 1px solid var(--border); padding-left: 0; padding-top: 12px; }
-  .account-metrics { grid-template-columns: 1fr 1fr; }
-  .account-metric:last-child { grid-column: 1 / -1; border-left: none; border-top: 1px solid var(--border); padding-left: 0; padding-top: 8px; text-align: left; }
 }
 
 /* ══════════════════════════════════════════════════════════
