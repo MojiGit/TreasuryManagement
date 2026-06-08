@@ -115,21 +115,35 @@ function initTabs() {
   document.getElementById('ab-save-btn')
     ?.addEventListener('click', _saveAddForm);
   _renderMasterRow();
+
+  // Restore sidebar feed timestamps
+  try {
+    const sync    = localStorage.getItem('ct_feed_sync');
+    const lastRun = localStorage.getItem('ct_feed_lastrun');
+    const syncEl    = document.getElementById('feedSyncStatus');
+    const lastRunEl = document.getElementById('feedLastRun');
+    if (sync    && syncEl)    syncEl.textContent    = sync;
+    if (lastRun && lastRunEl) lastRunEl.textContent = lastRun;
+  } catch (e) {}
 }
 
 function _twoDigit(n) { return String(n).padStart(2, '0'); }
 function _hhmm(d) { return `${_twoDigit(d.getHours())}:${_twoDigit(d.getMinutes())}`; }
 
-function updateFeedDraftSaved() {
-  const el = document.getElementById('feedDraftStatus');
+function updateFeedLastSync() {
+  const el = document.getElementById('feedSyncStatus');
   if (!el) return;
-  el.textContent = `saved ${_hhmm(new Date())}`;
+  const text = _hhmm(new Date());
+  el.textContent = text;
+  try { localStorage.setItem('ct_feed_sync', text); } catch (e) {}
 }
 
 function updateFeedLastRun() {
   const el = document.getElementById('feedLastRun');
   if (!el) return;
-  el.textContent = _hhmm(new Date());
+  const text = _hhmm(new Date());
+  el.textContent = text;
+  try { localStorage.setItem('ct_feed_lastrun', text); } catch (e) {}
 }
 
 async function fetchPrices() {
@@ -853,7 +867,6 @@ function saveDraft() {
     } catch (e) {
         console.warn('[CryptoTreasury] Draft save failed:', e);
     }
-    updateFeedDraftSaved();
 }
 
 function _loadRawDraft() {
@@ -1142,6 +1155,7 @@ async function refreshPortfolio() {
         }));
 
         displayPortfolio(data);
+        updateFeedLastSync();
 
         // Rebuild the pooling table with fresh balances, then restore saved config
         buildPoolingSetup(loadedWallets);
@@ -1214,6 +1228,7 @@ async function loadPortfolio() {
             ...walletMetrics(w),
         }));
         displayPortfolio(data);
+        updateFeedLastSync();
         buildPoolingSetup(loadedWallets);
         saveDraft();  // persist fresh portfolio state immediately after load
 

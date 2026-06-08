@@ -2422,3 +2422,63 @@ body {
   color: var(--muted);
   margin-top: 2px;
 }
+
+/* ══════════════════════════════════════════════════════════
+   FIX — Sidebar nav icons + workspace label + soon badge
+   ══════════════════════════════════════════════════════════ */
+
+/* Workspace section label */
+.sidebar-section-label {
+  font-size: 10.5px;
+  font-weight: 600;
+  letter-spacing: 0.6px;
+  text-transform: uppercase;
+  color: var(--muted);
+  padding: 0 12px;
+  margin-bottom: 4px;
+  margin-top: 8px;
+}
+
+/* Nav item layout — add flex for icon alignment */
+.sidebar-nav-item {
+  display: flex;
+  align-items: center;
+  gap: 9px;
+}
+
+/* Nav icon sizing */
+.sidebar-nav-icon {
+  width: 16px;
+  height: 16px;
+  flex-shrink: 0;
+  opacity: 0.75;
+}
+.sidebar-nav-item.is-active .sidebar-nav-icon {
+  opacity: 1;
+}
+
+/* Disabled nav item */
+.sidebar-nav-disabled {
+  display: flex;
+  align-items: center;
+  gap: 9px;
+  padding: 8px 12px;
+  border-radius: 6px;
+  font-size: 13px;
+  color: var(--faint);
+  cursor: default;
+  user-select: none;
+}
+
+/* Soon badge */
+.sidebar-soon-badge {
+  margin-left: auto;
+  font-size: 10px;
+  font-weight: 500;
+  letter-spacing: 0.3px;
+  color: var(--muted);
+  background: var(--bg-2);
+  border: 1px solid var(--line);
+  border-radius: var(--radius-pill);
+  padding: 1px 7px;
+}

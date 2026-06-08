@@ -21,31 +21,97 @@
             </div>
         </div>
 
-        <!-- nav (inert in Phase 1A) -->
+        <div class="sidebar-section-label">Workspace</div>
+
         <nav class="sidebar-nav" role="tablist">
+
             <button type="button" class="sidebar-nav-item is-active"
-                    data-tab="overview"  role="tab" aria-selected="true">
+                    data-tab="overview" role="tab"
+                    aria-selected="true">
+                <svg class="sidebar-nav-icon" viewBox="0 0 20 20"
+                     fill="none" xmlns="http://www.w3.org/2000/svg">
+                    <rect x="2" y="2" width="7" height="7"
+                          rx="1.5" fill="currentColor"/>
+                    <rect x="11" y="2" width="7" height="7"
+                          rx="1.5" fill="currentColor"/>
+                    <rect x="2" y="11" width="7" height="7"
+                          rx="1.5" fill="currentColor"/>
+                    <rect x="11" y="11" width="7" height="7"
+                          rx="1.5" fill="currentColor"/>
+                </svg>
                 Overview
             </button>
+
             <button type="button" class="sidebar-nav-item"
-                    data-tab="wallets"   role="tab" aria-selected="false">
+                    data-tab="wallets" role="tab"
+                    aria-selected="false">
+                <svg class="sidebar-nav-icon" viewBox="0 0 20 20"
+                     fill="none" xmlns="http://www.w3.org/2000/svg">
+                    <rect x="2" y="5" width="16" height="11"
+                          rx="2" stroke="currentColor"
+                          stroke-width="1.5"/>
+                    <path d="M2 8h16" stroke="currentColor"
+                          stroke-width="1.5"/>
+                    <rect x="13" y="11" width="3" height="2"
+                          rx="0.5" fill="currentColor"/>
+                </svg>
                 Wallets
             </button>
+
             <button type="button" class="sidebar-nav-item"
-                    data-tab="targets"   role="tab" aria-selected="false">
+                    data-tab="targets" role="tab"
+                    aria-selected="false">
+                <svg class="sidebar-nav-icon" viewBox="0 0 20 20"
+                     fill="none" xmlns="http://www.w3.org/2000/svg">
+                    <circle cx="10" cy="10" r="7.5"
+                            stroke="currentColor" stroke-width="1.5"/>
+                    <circle cx="10" cy="10" r="4"
+                            stroke="currentColor" stroke-width="1.5"/>
+                    <circle cx="10" cy="10" r="1.5"
+                            fill="currentColor"/>
+                </svg>
                 Targets
             </button>
+
             <button type="button" class="sidebar-nav-item"
-                    data-tab="rebalance" role="tab" aria-selected="false">
+                    data-tab="rebalance" role="tab"
+                    aria-selected="false">
+                <svg class="sidebar-nav-icon" viewBox="0 0 20 20"
+                     fill="none" xmlns="http://www.w3.org/2000/svg">
+                    <path d="M3 7h11M14 7l-3-3M14 7l-3 3"
+                          stroke="currentColor" stroke-width="1.5"
+                          stroke-linecap="round"
+                          stroke-linejoin="round"/>
+                    <path d="M17 13H6M6 13l3-3M6 13l3 3"
+                          stroke="currentColor" stroke-width="1.5"
+                          stroke-linecap="round"
+                          stroke-linejoin="round"/>
+                </svg>
                 Rebalance
             </button>
+
+            <!-- Disabled future item -->
+            <div class="sidebar-nav-item sidebar-nav-disabled">
+                <svg class="sidebar-nav-icon" viewBox="0 0 20 20"
+                     fill="none" xmlns="http://www.w3.org/2000/svg">
+                    <circle cx="10" cy="10" r="7.5"
+                            stroke="currentColor" stroke-width="1.5"/>
+                    <path d="M10 6v4l2.5 2.5"
+                          stroke="currentColor" stroke-width="1.5"
+                          stroke-linecap="round"
+                          stroke-linejoin="round"/>
+                </svg>
+                Reconcile
+                <span class="sidebar-soon-badge">soon</span>
+            </div>
+
         </nav>
 
         <!-- feed panel -->
         <div class="sidebar-feed" id="sidebarFeed">
             <div class="sidebar-feed-row">
-                <span class="sidebar-feed-label">Draft</span>
-                <span class="sidebar-feed-value" id="feedDraftStatus">—</span>
+                <span class="sidebar-feed-label">Last sync</span>
+                <span class="sidebar-feed-value" id="feedSyncStatus">—</span>
             </div>
             <div class="sidebar-feed-row">
                 <span class="sidebar-feed-label">Last run</span>
