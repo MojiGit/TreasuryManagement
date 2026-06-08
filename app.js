@@ -400,13 +400,6 @@ function fmtLegendTimestamp(date) {
 }
 
 // ── Step Progress ─────────────────────────────────────────
-function setStep(active) {
-    // PHASE-1C: No-op. Linear step progression replaced
-    // by sidebar tab navigation. Existing callers remain
-    // in place but do nothing. Safe to remove in later
-    // cleanup phase.
-    return;
-}
 
 function setLoading(btn, loading) {
     const text    = btn.querySelector('.btn-text');
@@ -1742,7 +1735,6 @@ function displayPortfolio(data) {
     legendEl.classList.remove('hidden');
 
     document.getElementById('portfolio-view').classList.remove('hidden');
-    setStep(2);
 }
 
 // ── Step 3: Build Pooling Setup ───────────────────────────
@@ -1858,7 +1850,6 @@ function buildPoolingSetup(wallets) {
     });
 
     document.getElementById('pooling-setup').classList.remove('hidden');
-    setStep(3);
 }
 
 function toggleTarget(select) {
@@ -2106,7 +2097,6 @@ function displayResults(data) {
     const transferDiv = document.getElementById('transfer-results');
 
     section.classList.remove('hidden');
-    setStep(4);
 
     // Show infeasibility warnings (one or both tokens may be infeasible)
     const msgs = [];
