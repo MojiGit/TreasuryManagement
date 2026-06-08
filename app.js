@@ -2487,16 +2487,6 @@ function renderAfterPortfolio(data) {
     const masterEntry = data.summary.find(w => w.role === 'master');
     const subEntries  = data.summary.filter(w => w.role === 'sub');
 
-    // ── Section header ────────────────────────────────────
-    const headerEl = document.getElementById('after-master-overview');
-    if (headerEl) {
-        headerEl.innerHTML = `
-            <div class="after-section-header">
-                <div class="after-section-title">Post-rebalance check</div>
-                <div class="after-section-sub">Projected balances after all transfers execute.</div>
-            </div>`;
-    }
-
     // ── Projected wallets table ───────────────────────────
     const tableContainer = document.getElementById('after-sub-accounts');
     if (tableContainer) {
