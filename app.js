@@ -12,15 +12,21 @@ let _masterAddress = '';
 let _masterDesc    = '';
 // ── /Master wallet state ──────────────────────────────────────
 
-// Chart palette — muted, professional; blues/indigo primary family
-// Ledgerline deterministic wallet palette — Phase 2F
-// Mirrors --wallet-N-dark CSS variables from Phase 0.
+// Ledgerline sub-wallet palette — 12 slots.
+// Violet excluded: reserved for MASTER_CHART_COLOR.
 const CHART_COLORS = [
-    '#7c5cff',  // slot 0 — violet
-    '#34d399',  // slot 1 — emerald
-    '#f59e0b',  // slot 2 — amber
-    '#ec4899',  // slot 3 — pink
-    '#3b82f6',  // slot 4 — blue
+    '#34d399',  // emerald
+    '#3b82f6',  // blue
+    '#f59e0b',  // amber
+    '#ec4899',  // pink
+    '#06b6d4',  // cyan
+    '#f97316',  // orange
+    '#a3e635',  // lime
+    '#e879f9',  // fuchsia
+    '#2dd4bf',  // teal
+    '#fb7185',  // rose
+    '#818cf8',  // indigo
+    '#facc15',  // yellow
 ];
 
 // Master wallet — violet (slot 0, matches --wallet-0-dark)
