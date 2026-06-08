@@ -175,8 +175,8 @@ async def pool(payload: LoadRequest):
     for t in usdt_transfers:
         t["token"] = "USDT"
 
-    # ── Merged transfer list (ETH first, then USDT) ───────
-    all_transfers = eth_transfers + usdt_transfers
+    # ── Merged transfer list (USDT first, then ETH) ───────
+    all_transfers = usdt_transfers + eth_transfers
 
     # ── Merged per-wallet summary ─────────────────────────
     usdt_map = {w["address"]: w for w in usdt_summary}

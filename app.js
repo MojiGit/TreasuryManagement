@@ -2218,7 +2218,7 @@ function displayResults(data) {
         master_to_sub:  { label: 'Master → Sub', css: 'type-master-sub' },
     };
     const typeOrder  = { sub_to_sub: 1, sub_to_master: 2, master_to_sub: 3 };
-    const tokenOrder = t => t.token === 'USDT' ? 1 : 0;
+    const tokenOrder = t => t.token === 'USDT' ? 0 : 1;
     const sorted     = [...transfers].sort((a, b) =>
         tokenOrder(a) - tokenOrder(b) || typeOrder[a.type] - typeOrder[b.type]
     );
@@ -2306,18 +2306,18 @@ function displayResults(data) {
 
         // Define phase groups in render order
         const phaseGroups = [
-            { token: 'ETH',  type: 'sub_to_sub',
-              label: 'ETH · SUB TO SUB',              dot: 'var(--accent)' },
-            { token: 'ETH',  type: 'sub_to_master',
-              label: 'ETH · COLLECT INTO MASTER',     dot: 'var(--positive)' },
-            { token: 'ETH',  type: 'master_to_sub',
-              label: 'ETH · DISTRIBUTE FROM MASTER',  dot: 'var(--accent)' },
             { token: 'USDT', type: 'sub_to_sub',
               label: 'USDT · SUB TO SUB',             dot: 'var(--accent)' },
             { token: 'USDT', type: 'sub_to_master',
               label: 'USDT · COLLECT INTO MASTER',    dot: 'var(--positive)' },
             { token: 'USDT', type: 'master_to_sub',
               label: 'USDT · DISTRIBUTE FROM MASTER', dot: 'var(--accent)' },
+            { token: 'ETH',  type: 'sub_to_sub',
+              label: 'ETH · SUB TO SUB',              dot: 'var(--accent)' },
+            { token: 'ETH',  type: 'sub_to_master',
+              label: 'ETH · COLLECT INTO MASTER',     dot: 'var(--positive)' },
+            { token: 'ETH',  type: 'master_to_sub',
+              label: 'ETH · DISTRIBUTE FROM MASTER',  dot: 'var(--accent)' },
         ];
 
         let globalIndex = 1;

@@ -47,7 +47,7 @@ def calculate_surplus_deficit(wallets, master_minimum=0):
                     "role":    "sub",
                     "balance": wallet["balance"],
                     "target":  0,
-                    "surplus": round(wallet["balance"], 4),
+                    "surplus": round(wallet["balance"], 8),
                     "deficit": 0,
                 })
 
@@ -61,7 +61,7 @@ def calculate_surplus_deficit(wallets, master_minimum=0):
                         "role":    "sub",
                         "balance": wallet["balance"],
                         "target":  wallet["target"],
-                        "surplus": round(diff, 4),
+                        "surplus": round(diff, 8),
                         "deficit": 0,
                     })
                 elif diff < 0:
@@ -72,7 +72,7 @@ def calculate_surplus_deficit(wallets, master_minimum=0):
                         "balance": wallet["balance"],
                         "target":  wallet["target"],
                         "surplus": 0,
-                        "deficit": round(abs(diff), 4),
+                        "deficit": round(abs(diff), 8),
                     })
                 else:
                     # Current = target: no action needed
@@ -168,7 +168,7 @@ def generate_transfer_plan(results):
                 continue
 
             match_amount = min(surplus["amount"], deficit["amount"])
-            match_amount = round(match_amount, 4)
+            match_amount = round(match_amount, 8)
 
             if match_amount > 0:
                 transfers.append({
@@ -177,8 +177,8 @@ def generate_transfer_plan(results):
                     "amount": match_amount,
                     "type":   "sub_to_sub"
                 })
-                surplus["amount"] = round(surplus["amount"] - match_amount, 4)
-                deficit["amount"] = round(deficit["amount"] - match_amount, 4)
+                surplus["amount"] = round(surplus["amount"] - match_amount, 8)
+                deficit["amount"] = round(deficit["amount"] - match_amount, 8)
 
     # ── Step 2: Remaining surpluses -> Master ─────────────
     for surplus in surplus_wallets:
