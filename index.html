@@ -364,28 +364,57 @@
             <section id="after-view" class="card">
                 <div class="card-header">
                     <div>
-                        <h2>After Transfer Analysis</h2>
-                        <p class="card-desc">Projected portfolio state after executing all transfers.</p>
+                        <h2>Post-rebalance check</h2>
+                        <p class="card-desc">Projected balances after all transfers execute.</p>
                     </div>
                 </div>
                 <div class="card-body">
-                    <div id="after-master-overview" class="master-overview after-master"></div>
-                    <div class="portfolio-body">
-                        <div id="after-sub-accounts" class="accounts-panel"></div>
-                        <div class="chart-panel-col">
-                            <div class="chart-item">
+
+                    <!-- Section header — populated by JS -->
+                    <div id="after-master-overview"></div>
+
+                    <!-- Projected wallets table — populated by JS -->
+                    <div id="after-sub-accounts"></div>
+
+                    <!-- Projected donut cards — same structure as Overview Phase 3B -->
+                    <div class="donut-row" id="after-donut-row" style="margin-top:24px;">
+
+                        <div class="donut-card">
+                            <div class="donut-card-header">
+                                <div class="donut-card-title">ETH distribution</div>
+                                <div class="donut-card-sub">Projected across wallets</div>
+                            </div>
+                            <div class="donut-chart-wrap">
                                 <svg id="after-chart" viewBox="0 0 200 200"
-                                    xmlns="http://www.w3.org/2000/svg"></svg>
+                                     xmlns="http://www.w3.org/2000/svg"></svg>
                             </div>
-                            <div class="chart-item">
-                                <svg id="after-usdt-chart" viewBox="0 0 200 200"
-                                    xmlns="http://www.w3.org/2000/svg"></svg>
-                            </div>
-                            <div class="chart-item">
-                                <svg id="after-usd-chart" viewBox="0 0 200 200"
-                                    xmlns="http://www.w3.org/2000/svg"></svg>
-                            </div>
+                            <div id="after-legend-eth" class="donut-legend"></div>
                         </div>
+
+                        <div class="donut-card">
+                            <div class="donut-card-header">
+                                <div class="donut-card-title">USDT distribution</div>
+                                <div class="donut-card-sub">Projected across wallets</div>
+                            </div>
+                            <div class="donut-chart-wrap">
+                                <svg id="after-usdt-chart" viewBox="0 0 200 200"
+                                     xmlns="http://www.w3.org/2000/svg"></svg>
+                            </div>
+                            <div id="after-legend-usdt" class="donut-legend"></div>
+                        </div>
+
+                        <div class="donut-card">
+                            <div class="donut-card-header">
+                                <div class="donut-card-title">Allocation</div>
+                                <div class="donut-card-sub">Portfolio mix by asset</div>
+                            </div>
+                            <div class="donut-chart-wrap">
+                                <svg id="after-usd-chart" viewBox="0 0 200 200"
+                                     xmlns="http://www.w3.org/2000/svg"></svg>
+                            </div>
+                            <div id="after-legend-usd" class="donut-legend"></div>
+                        </div>
+
                     </div>
                 </div>
             </section>

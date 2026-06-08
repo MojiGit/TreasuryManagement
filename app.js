@@ -2476,9 +2476,7 @@ function displayResults(data) {
 function renderAfterPortfolio(data) {
     if (!data.summary || data.summary.length === 0) return;
 
-    // Normalise summary entries so portfolioMetrics() can read them:
-    // summary uses "post" for ETH balance and "usdt_post" for USDT.
-    // Temporarily alias fields so the generic helper works without modification.
+    // ── Phase 6C: Normalise for portfolioMetrics ──────────
     const summaryForMetrics = data.summary.map(w => ({
         ...w,
         balance:      w.post,
@@ -2489,117 +2487,141 @@ function renderAfterPortfolio(data) {
     const masterEntry = data.summary.find(w => w.role === 'master');
     const subEntries  = data.summary.filter(w => w.role === 'sub');
 
-    // ── Master after panel ────────────────────────────────
-    const mShort       = masterEntry.address.slice(0,6) + '...' + masterEntry.address.slice(-4);
-    const mEthPct      = pm.totalEth  > 0 ? (masterEntry.post       / pm.totalEth  * 100).toFixed(1) : '0';
-    const mUsdtPct     = pm.totalUsdt > 0 ? ((masterEntry.usdt_post ?? 0) / pm.totalUsdt * 100).toFixed(1) : '0';
-    const mDelta       = masterEntry.delta;
-    const mUsdtDelta   = masterEntry.usdt_delta ?? 0;
-    const mUsdtPost    = masterEntry.usdt_post  ?? 0;
-    const mEthUsd      = ethToUsd(masterEntry.post);
-    const mUsdtUsd     = r2(mUsdtPost * usdtRate());
-    const mTotalUsd    = mEthUsd != null ? r2(mEthUsd + mUsdtUsd) : null;
-
-    const ethDeltaColor  = mDelta    > 0 ? 'var(--green)' : mDelta    < 0 ? 'var(--red)' : 'var(--text-3)';
-    const usdtDeltaColor = mUsdtDelta > 0 ? 'var(--green)' : mUsdtDelta < 0 ? 'var(--red)' : 'var(--text-3)';
-    const ethDeltaStr    = mDelta    === 0 ? null : `${mDelta    > 0 ? '↑ +' : '↓ '}${mDelta.toFixed(4)} ETH`;
-    const usdtDeltaStr   = mUsdtDelta === 0 ? null : `${mUsdtDelta > 0 ? '↑ +' : '↓ '}${mUsdtDelta.toFixed(2)} USDT`;
-
-    document.getElementById('after-master-overview').innerHTML = `
-        <div class="master-header">
-            <div class="master-identity">
-                <span class="master-badge after-badge">Master Wallet</span>
-                <div class="master-addr">${mShort}</div>
-            </div>
-            ${mTotalUsd != null ? `
-            <div class="master-total-usd">
-                <span class="master-total-value">${fmtDollars(mTotalUsd)}</span>
-                <span class="master-total-label">USD</span>
-            </div>` : ''}
-        </div>
-        <div class="master-metrics-row">
-            <div class="master-metric">
-                <div class="master-metric-balance">${masterEntry.post.toFixed(4)} <span class="master-metric-unit">ETH</span></div>
-                ${mEthUsd != null ? `<div class="master-metric-usd">${fmtDollars(mEthUsd)} USD</div>` : ''}
-                ${ethDeltaStr ? `<div class="master-metric-delta" style="color:${ethDeltaColor}">${ethDeltaStr}</div>` : ''}
-                <div class="master-metric-share">${mEthPct}% of ETH portfolio</div>
-            </div>
-            <div class="master-metric">
-                <div class="master-metric-balance">${mUsdtPost.toFixed(2)} <span class="master-metric-unit">USDT</span></div>
-                <div class="master-metric-usd">${fmtDollars(mUsdtUsd)} USD</div>
-                ${usdtDeltaStr ? `<div class="master-metric-delta" style="color:${usdtDeltaColor}">${usdtDeltaStr}</div>` : ''}
-                <div class="master-metric-share">${mUsdtPct}% of USDT portfolio</div>
-            </div>
-        </div>`;
-    // Stamp data-address so the master card participates in chart hover interaction.
-    document.getElementById('after-master-overview').dataset.address = masterEntry.address;
-
-    // ── Sub-accounts list with deltas ─────────────────────
-    const rows = subEntries.map(w => {
-        const color        = getWalletColor(w.address);
-        const ethPct       = pm.totalEth  > 0 ? (w.post              / pm.totalEth  * 100).toFixed(1) : '0';
-        const usdtPct      = pm.totalUsdt > 0 ? ((w.usdt_post ?? 0)  / pm.totalUsdt * 100).toFixed(1) : '0';
-        const postEthUsd   = ethToUsd(w.post);
-        const postUsdtUsd  = r2((w.usdt_post ?? 0) * usdtRate());
-        const postTotalUsd = postEthUsd != null ? r2(postEthUsd + postUsdtUsd) : null;
-        const portfolioPct = pm.totalUsd > 0 && postTotalUsd != null
-            ? (postTotalUsd / pm.totalUsd * 100).toFixed(1) : ethPct;
-
-        const delta      = w.delta;
-        const usdtDelta  = w.usdt_delta ?? 0;
-
-        const ethDeltaPill  = delta === 0     ? '' :
-            `<span class="delta-pill ${delta > 0 ? 'up' : 'down'}">${delta > 0 ? '↑ +' : '↓ '}${delta.toFixed(4)}</span>`;
-        const usdtDeltaPill = usdtDelta === 0 ? '' :
-            `<span class="delta-pill ${usdtDelta > 0 ? 'up' : 'down'}">${usdtDelta > 0 ? '↑ +' : '↓ '}${usdtDelta.toFixed(2)} USDT</span>`;
-
-        return `
-            <div class="account-row" data-address="${w.address}">
-                <div class="account-dot" style="background:${color};"></div>
-                <div class="account-body">
-                    <div class="account-addr">${walletIdHtmlByAddr(w.address)}</div>
-                    <div class="account-metrics">
-                        <div class="account-metric">
-                            <div class="account-metric-bal">${w.post.toFixed(4)} <span class="account-metric-unit">ETH</span></div>
-                            ${postEthUsd != null ? `<div class="account-metric-usd">${fmtDollars(postEthUsd)} USD</div>` : ''}
-                            ${ethDeltaPill}
-                            <div class="account-metric-share">${ethPct}% of ETH portfolio</div>
-                        </div>
-                        <div class="account-metric">
-                            <div class="account-metric-bal">${(w.usdt_post ?? 0).toFixed(2)} <span class="account-metric-unit">USDT</span></div>
-                            <div class="account-metric-usd">${fmtDollars(postUsdtUsd)} USD</div>
-                            ${usdtDeltaPill}
-                            <div class="account-metric-share">${usdtPct}% of USDT portfolio</div>
-                        </div>
-                        <div class="account-metric">
-                            ${postTotalUsd != null
-                                ? `<div class="account-total-value">${fmtDollars(postTotalUsd)}<span class="account-total-label"> USD</span></div>`
-                                : `<div class="account-total-value">—</div>`}
-                            <div class="account-metric-share">${portfolioPct}% of portfolio</div>
-                        </div>
-                    </div>
-                </div>
+    // ── Section header ────────────────────────────────────
+    const headerEl = document.getElementById('after-master-overview');
+    if (headerEl) {
+        headerEl.innerHTML = `
+            <div class="after-section-header">
+                <div class="after-section-title">Post-rebalance check</div>
+                <div class="after-section-sub">Projected balances after all transfers execute.</div>
             </div>`;
-    }).join('');
+    }
 
-    document.getElementById('after-sub-accounts').innerHTML = `
-        <div class="accounts-header">
-            Sub-Accounts <span class="accounts-count">${subEntries.length}</span>
-        </div>
-        ${rows}`;
+    // ── Projected wallets table ───────────────────────────
+    const tableContainer = document.getElementById('after-sub-accounts');
+    if (tableContainer) {
 
-    // ── After-view donut charts ───────────────────────────
-    // Build wallet objects with all balance fields needed for three charts.
+        const masterColor       = MASTER_CHART_COLOR;
+        const masterShort       = masterEntry.address.slice(0,6) + '…' + masterEntry.address.slice(-4);
+        const masterPostEthUsd  = ethToUsd(masterEntry.post);
+        const masterPostUsdtUsd = r2((masterEntry.usdt_post ?? 0) * usdtRate());
+        const masterPostTotalUsd = masterPostEthUsd != null
+            ? r2(masterPostEthUsd + masterPostUsdtUsd) : null;
+
+        const masterEthDelta  = masterEntry.delta ?? 0;
+        const masterUsdtDelta = masterEntry.usdt_delta ?? 0;
+
+        const fmtDeltaPill = (val, dp, suffix) => {
+            if (val === 0) return '<span class="wt-delta-flat">—</span>';
+            const cls  = val > 0 ? 'delta-positive' : 'delta-negative';
+            const sign = val > 0 ? '+' : '';
+            return `<span class="${cls}">${sign}${val.toFixed(dp)}${suffix ? ' ' + suffix : ''}</span>`;
+        };
+
+        tableContainer.innerHTML = `
+            <table class="wallets-table">
+                <thead>
+                    <tr>
+                        <th class="wt-col-wallet">Wallet</th>
+                        <th class="wt-col-num">ETH (proj)</th>
+                        <th class="wt-col-num">Δ ETH</th>
+                        <th class="wt-col-num pt-col-divider">USDT (proj)</th>
+                        <th class="wt-col-num">Δ USDT</th>
+                        <th class="wt-col-num">Value (proj)</th>
+                    </tr>
+                </thead>
+                <tbody id="after-wallets-tbody">
+                    <tr class="wt-row wt-row-master" data-address="${masterEntry.address}">
+                        <td class="wt-col-wallet">
+                            <span class="wt-dot" style="background:${masterColor}"></span>
+                            <span class="wt-identity">
+                                <span class="wt-name">
+                                    ${_masterLabel || 'Master Wallet'}
+                                    <span class="master-badge">★ MASTER</span>
+                                </span>
+                                <span class="wt-addr">${masterShort}</span>
+                            </span>
+                        </td>
+                        <td class="wt-col-num">
+                            <span class="wt-bal">${masterEntry.post.toFixed(4)}</span>
+                            ${masterPostEthUsd != null
+                                ? `<br><span class="wt-usd">${fmtDollars(masterPostEthUsd)}</span>`
+                                : ''}
+                        </td>
+                        <td class="wt-col-num">${fmtDeltaPill(masterEthDelta, 4, '')}</td>
+                        <td class="wt-col-num pt-col-divider">
+                            <span class="wt-bal">${(masterEntry.usdt_post ?? 0).toFixed(2)}</span>
+                            ${masterPostUsdtUsd != null
+                                ? `<br><span class="wt-usd">${fmtDollars(masterPostUsdtUsd)}</span>`
+                                : ''}
+                        </td>
+                        <td class="wt-col-num">${fmtDeltaPill(masterUsdtDelta, 2, '')}</td>
+                        <td class="wt-col-num wt-col-value">
+                            ${masterPostTotalUsd != null ? fmtDollars(masterPostTotalUsd) : '—'}
+                        </td>
+                    </tr>
+                </tbody>
+            </table>`;
+
+        const tbody = document.getElementById('after-wallets-tbody');
+        subEntries.forEach(w => {
+            const color        = getWalletColor(w.address);
+            const short        = w.address.slice(0,6) + '…' + w.address.slice(-4);
+            const postEthUsd   = ethToUsd(w.post);
+            const postUsdtUsd  = r2((w.usdt_post ?? 0) * usdtRate());
+            const postTotalUsd = postEthUsd != null ? r2(postEthUsd + postUsdtUsd) : null;
+            const ethDelta     = w.delta ?? 0;
+            const usdtDelta    = w.usdt_delta ?? 0;
+            const lw           = loadedWallets.find(
+                x => x.address.toLowerCase() === w.address.toLowerCase());
+            const walletName   = lw?.label || '';
+
+            const tr = document.createElement('tr');
+            tr.className       = 'wt-row';
+            tr.dataset.address = w.address;
+            tr.innerHTML = `
+                <td class="wt-col-wallet">
+                    <span class="wt-dot" style="background:${color}"></span>
+                    <span class="wt-identity">
+                        <span class="wt-name">${walletName}</span>
+                        <span class="wt-addr">${short}</span>
+                    </span>
+                </td>
+                <td class="wt-col-num">
+                    <span class="wt-bal">${w.post.toFixed(4)}</span>
+                    ${postEthUsd != null
+                        ? `<br><span class="wt-usd">${fmtDollars(postEthUsd)}</span>`
+                        : ''}
+                </td>
+                <td class="wt-col-num">${fmtDeltaPill(ethDelta, 4, '')}</td>
+                <td class="wt-col-num pt-col-divider">
+                    <span class="wt-bal">${(w.usdt_post ?? 0).toFixed(2)}</span>
+                    ${postUsdtUsd != null
+                        ? `<br><span class="wt-usd">${fmtDollars(postUsdtUsd)}</span>`
+                        : ''}
+                </td>
+                <td class="wt-col-num">${fmtDeltaPill(usdtDelta, 2, '')}</td>
+                <td class="wt-col-num wt-col-value">
+                    ${postTotalUsd != null ? fmtDollars(postTotalUsd) : '—'}
+                </td>`;
+            tbody.appendChild(tr);
+        });
+    }
+
+    // ── Projected donut charts ────────────────────────────
     const afterWallets = data.summary.map(w => {
         const postEthUsd   = ethToUsd(w.post);
         const postUsdtUsd  = r2((w.usdt_post ?? 0) * usdtRate());
         const postTotalUsd = postEthUsd != null ? r2(postEthUsd + postUsdtUsd) : null;
+        const lw           = loadedWallets.find(
+            x => x.address.toLowerCase() === w.address.toLowerCase());
         return {
             address:      w.address,
             balance:      w.post,
             usdt_balance: w.usdt_post ?? 0,
             total_usd:    postTotalUsd,
             role:         w.role,
+            label:        lw?.label || '',
             _color:       w.role === 'master' ? MASTER_CHART_COLOR : getWalletColor(w.address),
             error:        null,
         };
@@ -2607,43 +2629,44 @@ function renderAfterPortfolio(data) {
 
     renderDonutChartTo(
         document.getElementById('after-chart'),
-        afterWallets,
-        pm.totalEth,
-        'after-sub-accounts'
+        afterWallets, pm.totalEth, 'after-sub-accounts'
+    );
+    renderDonutLegend(
+        'after-legend-eth', afterWallets,
+        pm.totalEth, 'balance',
+        v => v.toFixed(4) + ' ETH'
     );
 
     renderDonutChartTo(
         document.getElementById('after-usdt-chart'),
-        afterWallets,
-        pm.totalUsdt,
-        'after-sub-accounts',
-        {
-            balanceKey:  'usdt_balance',
-            centerLabel: 'USDT',
-            centerFmt:   v => fmtUsdt(v) ?? '0.00',
-        }
+        afterWallets, pm.totalUsdt, 'after-sub-accounts',
+        { balanceKey: 'usdt_balance', centerLabel: 'USDT', centerFmt: v => fmtUsdt(v) ?? '0.00' }
+    );
+    renderDonutLegend(
+        'after-legend-usdt', afterWallets,
+        pm.totalUsdt, 'usdt_balance',
+        v => v.toLocaleString('en-US', { maximumFractionDigits: 0 }) + ' USDT'
     );
 
     if (pm.totalUsd != null) {
         renderDonutChartTo(
             document.getElementById('after-usd-chart'),
-            afterWallets,
-            pm.totalUsd,
-            'after-sub-accounts',
-            {
-                balanceKey:  'total_usd',
-                centerLabel: 'USD',
-                centerFmt:   fmtUsdCompact,
-            }
+            afterWallets, pm.totalUsd, 'after-sub-accounts',
+            { balanceKey: 'total_usd', centerLabel: 'USD', centerFmt: fmtUsdCompact }
+        );
+        renderDonutLegend(
+            'after-legend-usd', afterWallets,
+            pm.totalUsd, 'total_usd', fmtUsdCompact
         );
     } else {
-        const el = document.getElementById('after-usd-chart');
-        if (el) el.innerHTML = '';
+        const el  = document.getElementById('after-usd-chart');
+        if (el)  el.innerHTML = '';
+        const leg = document.getElementById('after-legend-usd');
+        if (leg) leg.innerHTML = '';
     }
 
-    const afterView = document.getElementById('after-view');
-    afterView.classList.remove('hidden');
-    setStep(5);
+    // ── Show the section ──────────────────────────────────
+    document.getElementById('after-view')?.classList.remove('hidden');
 }
 
 // ── PDF Report ────────────────────────────────────────────
